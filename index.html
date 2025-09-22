@@ -3084,7 +3084,15 @@ function rebalance(){
 
   const monthYear = {year: state.year, month: state.month};
   const shiftHours = (s)=> (parseTimeStr(s.end)-parseTimeStr(s.start))/60;
-  const reasons = {weeklyCap:0, monthCap:0, chainCap:0, conflict:0};
+  const reasons = {weeklyCap:0, monthCap:0, chainCap:0, edgeConsec:0, conflict:0, added:0, pair:0};
+
+  const getShiftBy = (date,start)=> state.schedule[`${date} ${start}`];
+  const nextStart = (s)=> timeStr(parseTimeStr(s.end));
+  const prevStart = (s)=>{
+    const startMin = parseTimeStr(s.start);
+    const dur = parseTimeStr(s.end) - parseTimeStr(s.start);
+    return timeStr(startMin - dur);
+  };
 
   // Build list of shifts for current month only, ordered by replacement priority
   const shiftList = Object.entries(state.schedule)
@@ -3103,7 +3111,16 @@ function rebalance(){
   // Iteratively reduce max-min hour gap via swaps from high to low
   let changed = true;
   let iterations = 0;
-  const targetGap = 0.5; // aim to equalize within half an hour
+  const targetGap = 5; // stop when max–min gap within 5 hours
+  // Open/close averages for fairness pressure
+  const openAvg = (()=>{
+    const vals = state.students.map(st=> (state.fairness[st.id]?.openings)||0);
+    return vals.reduce((a,b)=>a+b,0)/Math.max(vals.length,1);
+  })();
+  const closeAvg = (()=>{
+    const vals = state.students.map(st=> (state.fairness[st.id]?.closings)||0);
+    return vals.reduce((a,b)=>a+b,0)/Math.max(vals.length,1);
+  })();
   while (changed && iterations < 200){
     iterations++;
     changed = false;
@@ -3150,6 +3167,11 @@ function rebalance(){
             // Check consecutive hours limit (5 hours max) for lo if taking this shift
             const consecutiveHours = getConsecutiveHours(lo.id, s.date, s.start, s.end);
             if (consecutiveHours > 5){ reasons.chainCap++; continue; }
+            // Edge consecutive-day protection
+            if ((s.isOpening||s.isClosing)){
+              const prev = new Date(s.date+'T00:00:00'); prev.setDate(prev.getDate()-1);
+              if (didEdge(prev.toISOString().slice(0,10), lo.id, s.isOpening?'open':'close')){ reasons.edgeConsec++; continue; }
+            }
             // Also ensure removing from hi does not force a forbidden chain elsewhere (not needed)
 
             // Weekly target bias: prefer shifts in weeks where lo is under target
@@ -3157,6 +3179,68 @@ function rebalance(){
             const loWeekHours = hoursInWeek(lo.id, loWeekIdx);
             const loWeekTarget = lowList.find(x=>x.id===lo.id)?.target || getWeeklyTargetHours(lo.id);
             const underTarget = (loWeekHours + addH) <= loWeekTarget + 0.25; // small slack
+
+            // Opening/closing fairness pressure: prefer moves from above-avg to below-avg
+            if (s.isOpening){
+              const hiOpen = (state.fairness[hi.id]?.openings)||0;
+              const loOpen = (state.fairness[lo.id]?.openings)||0;
+              if (hiOpen <= openAvg && loOpen >= openAvg) { /* de-prioritize */ }
+            }
+            if (s.isClosing){
+              const hiClose = (state.fairness[hi.id]?.closings)||0;
+              const loClose = (state.fairness[lo.id]?.closings)||0;
+              if (hiClose <= closeAvg && loClose >= closeAvg) { /* de-prioritize */ }
+            }
+
+            // Add-not-swap when capacity available (assignees < required)
+            if ((s.assignees?.length||0) < (s.required||1)){
+              if (canAssignStudentToShift(lo.id, s) && validateAssignment(lo.id, s).length===0){
+                s.assignees.push(lo.id);
+                reasons.added++;
+                moved = true; changed = true;
+                log(`Rebalance add: ${lo.name} added to ${s.date} ${s.start}-${s.end}${underTarget?' [weekly target]':''}`);
+                return true;
+              }
+            }
+
+            // Two-slot (pair) transfer: try adjacent hour with same hi
+            const tryPair = ()=>{
+              // prefer next
+              const candStarts = [nextStart(s), prevStart(s)];
+              for (const stStart of candStarts){
+                const adj = getShiftBy(s.date, stStart);
+                if (!adj) continue;
+                if (!adj.assignees || !adj.assignees.includes(hi.id)) continue;
+                if (adj.assignees.includes(lo.id)) continue;
+                const addH2 = addH + shiftHours(adj);
+                // caps check
+                const loWeek2 = getWeeklyAssignedHours(lo.id, s.date);
+                const loRec2 = state.students.find(x=>x.id===lo.id);
+                if (loRec2 && loRec2.weekly_max_hours && loWeek2 + addH2 > loRec2.weekly_max_hours){ reasons.weeklyCap++; continue; }
+                if (lo.h + addH2 > capOf(lo.id)){ reasons.monthCap++; continue; }
+                // 5h chain check across both
+                const cons1 = getConsecutiveHours(lo.id, s.date, s.start, s.end);
+                const cons2 = getConsecutiveHours(lo.id, adj.date, adj.start, adj.end);
+                if (Math.max(cons1, cons2) > 5){ reasons.chainCap++; continue; }
+                // temp remove hi from both to validate
+                s.assignees = s.assignees.filter(id=>id!==hi.id);
+                adj.assignees = adj.assignees.filter(id=>id!==hi.id);
+                const ok1 = canAssignStudentToShift(lo.id, s) && validateAssignment(lo.id, s).length===0;
+                const ok2 = canAssignStudentToShift(lo.id, adj) && validateAssignment(lo.id, adj).length===0;
+                if (ok1 && ok2){
+                  s.assignees.push(lo.id);
+                  adj.assignees.push(lo.id);
+                  moved = true; changed = true; reasons.pair++;
+                  log(`Rebalance pair: ${hi.name} → ${lo.name} on ${s.date} ${s.start}-${s.end} + ${adj.start}-${adj.end}${underTarget?' [weekly target]':''}`);
+                  return true;
+                } else {
+                  if (!s.assignees.includes(hi.id)) s.assignees.push(hi.id);
+                  if (!adj.assignees.includes(hi.id)) adj.assignees.push(hi.id);
+                }
+              }
+              return false;
+            };
+            if (tryPair()) return true;
 
             // Temporarily remove hi to check conflicts for lo
             s.assignees = s.assignees.filter(id=>id!==hi.id);
@@ -3202,7 +3286,7 @@ function rebalance(){
 
   renderCalendar();
   log('Rebalance complete: hours equalized as far as constraints allow.');
-  log(`Rebalance skips — weeklyCap:${reasons.weeklyCap}, monthCap:${reasons.monthCap}, chainCap:${reasons.chainCap}, conflict:${reasons.conflict}`);
+  log(`Rebalance summary — added:${reasons.added}, pair:${reasons.pair}, weeklyCap:${reasons.weeklyCap}, monthCap:${reasons.monthCap}, chainCap:${reasons.chainCap}, edgeConsec:${reasons.edgeConsec}, conflict:${reasons.conflict}`);
   showFeedback('Schedule rebalanced - hours equalized');
 }
 
