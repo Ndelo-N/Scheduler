@@ -1,0 +1,3409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>StudentShiftScheduler Enhanced</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#111827;
+    --muted:#94a3b8;
+    --text:#e5e7eb;
+    --accent:#22d3ee;
+    --warn:#f59e0b;
+    --danger:#ef4444;
+    --ok:#22c55e;
+    --grid:#1f2937;
+    --tile:#0b1226;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{
+    padding:16px 20px;border-bottom:1px solid #223;position:sticky;top:0;background:linear-gradient(180deg, rgba(15,23,42,1), rgba(15,23,42,0.9));
+    backdrop-filter: saturate(1.2) blur(6px); z-index:10;
+  }
+  h1{margin:0;font-size:20px;letter-spacing:.2px;}
+  .sub{color:var(--muted);font-size:12px;margin-top:6px;}
+  .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .header-actions .spacer{flex:1}
+  .header-actions button{
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: 1px solid #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    transition: all 0.2s ease;
+  }
+  .header-actions button:hover{
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+  }
+  .header-actions button.secondary{
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    border: 1px solid #6b7280;
+    box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
+  }
+  .header-actions button.secondary:hover{
+    background: linear-gradient(135deg, #4b5563, #374151);
+    box-shadow: 0 4px 8px rgba(107, 114, 128, 0.4);
+  }
+  .grid{
+    display:grid;gap:12px;padding:16px;
+    grid-template-columns: 320px 1fr;
+  }
+  .panel{
+    background:var(--panel);border:1px solid #223;border-radius:10px;padding:12px 12px 14px;
+  }
+  .panel.controls{
+    height: calc(100vh - 120px); /* Full viewport minus header space */
+    overflow-y: auto; /* Independent scrolling */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+  .panel h3{margin:0 0 10px 0;font-size:14px;color:#c7d2fe}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label{font-size:12px;color:var(--muted)}
+  input[type="text"], input[type="number"], input[type="time"], input[type="date"], select, textarea{
+    background:#0b1120;border:1px solid #1f2937;color:var(--text);border-radius:8px;padding:8px;font-size:12px;outline:none;
+  }
+  textarea{width:100%;min-height:72px}
+  button{
+    background:linear-gradient(180deg,#0891b2,#06b6d4);border:0;color:white;padding:8px 10px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;
+  }
+  button.secondary{background:#111827;border:1px solid #1f2937;color:#d1d5db}
+  button.warn{background:linear-gradient(180deg,#f59e0b,#f59e0b)}
+  button.danger{background:linear-gradient(180deg,#ef4444,#ef4444)}
+  button.admin-mode{background:linear-gradient(180deg,#f59e0b,#f59e0b);border:2px solid #f59e0b}
+  button.admin-mode.active{background:linear-gradient(180deg,#ef4444,#ef4444);border:2px solid #ef4444}
+  .controls .row{margin-bottom:8px}
+  .calendar{
+    background:var(--panel);border:1px solid #223;border-radius:10px;padding:10px;
+  }
+  .cal-head{display:grid;grid-template-columns: repeat(7, 1fr);font-size:12px;color:var(--muted);padding:6px 4px}
+  .cal-grid{display:grid;grid-template-columns: repeat(7, 1fr);gap:6px}
+  .day{
+    background:var(--tile);border:1px solid var(--grid);border-radius:8px;min-height:120px;display:flex;flex-direction:column;overflow:hidden
+  }
+  .day.assessment{box-shadow:inset 0 0 0 1px #5b21b6, inset 0 0 0 9999px rgba(167,139,250,0.06)}
+  .day.non-operational{
+    background:#0a0f1a;border:1px solid #1a1f2a;opacity:0.6
+  }
+  .week-dim{opacity:0.35; filter:saturate(0.6)}
+  .day-header{
+    display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);
+    padding:6px 8px;border-bottom:1px solid #101826;background:#0a1224
+  }
+  .badges{display:flex;gap:6px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:999px;border:1px solid #1f2937;background:#0b1120;color:#cbd5e1;font-size:10px}
+  .badge.assess{border-color:#4c1d95;background:rgba(167,139,250,0.12);color:#c4b5fd}
+  .badge.test{border-color:#0e7490;background:rgba(34,211,238,0.12);color:#67e8f9}
+  .shift{
+    margin:6px 8px 8px;background:#0a1b3a;border:1px solid #1f2b46;border-radius:6px;padding:6px;position:relative;
+  }
+  .shift.admin-override{border:2px solid #f59e0b !important;background:rgba(245,158,11,0.1) !important}
+  .shift.admin-override::before{content:'🔧';position:absolute;top:-8px;right:-8px;background:#f59e0b;color:white;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px;z-index:10}
+  .admin-override-target{border:2px dashed #f59e0b !important;background:rgba(245,158,11,0.2) !important;animation:adminPulse 1s ease-in-out infinite alternate}
+  @keyframes adminPulse{from{box-shadow:0 0 0 0 rgba(245,158,11,0.4)}to{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+  .shift.req-bad{border-color:var(--danger)}
+  .shift-title{font-size:12px;color:#cbd5e1;margin-bottom:4px}
+  .assignees{display:flex;flex-wrap:wrap;gap:4px;min-height:24px}
+  .chip{
+    border-radius:999px;padding:2px 6px;font-size:11px;color:#0b1120;font-weight:600;cursor:grab; user-select:none
+  }
+  .chip.conflict{outline:2px solid var(--danger)}
+  .chip.locked{cursor:not-allowed !important;opacity:0.6 !important;transform:none !important;box-shadow:none !important}
+  .chip.locked:hover{transform:none !important;box-shadow:none !important}
+  .req{
+    position:absolute;top:6px;right:6px;font-size:10px;color:#94a3b8
+  }
+  .drop-hint{border:1px dashed #475569}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend .sq{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid #0004}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .summary table{width:100%;border-collapse:collapse;font-size:12px}
+  .summary th,.summary td{border-bottom:1px solid #1f2937;padding:6px;text-align:left}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{border:1px solid #1f2937;background:#0a1224;color:#cbd5e1;padding:2px 6px;border-radius:999px;font-size:11px}
+  details{border:1px solid #1f2937;border-radius:8px;padding:8px;background:#0b1120}
+  details summary{cursor:pointer;color:#c7d2fe}
+  .log{max-height:180px;overflow:auto;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;background:#050b1a;border:1px solid #0f172a;border-radius:8px;padding:8px;white-space:pre-wrap}
+  .warn-txt{color:var(--warn)}
+  .danger-txt{color:var(--danger)}
+  .ok-txt{color:var(--ok)}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .small{font-size:11px;color:var(--muted)}
+  .tooltip{position:relative}
+  .tooltip:hover::after{
+    content:attr(data-tip); position:absolute;left:0;top:100%;white-space:pre; background:#0b1120;border:1px solid #1f2937;color:#cbd5e1;
+    padding:8px;border-radius:8px;margin-top:6px;z-index:20;min-width:220px
+  }
+  .help{font-size:12px;color:#a5b4fc}
+  .usage{font-size:12px;line-height:1.5;color:#cbd5e1}
+  .kbd{background:#0b1120;border:1px solid #1f2937;border-bottom-color:#0b1326;padding:2px 6px;border-radius:6px;font-size:11px}
+  
+  /* NEW: Student Selection Modal */
+  .modal-overlay{
+    position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;display:none;align-items:center;justify-content:center
+  }
+  .modal{
+    background:var(--panel);border:1px solid #223;border-radius:12px;padding:20px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto
+  }
+  .modal h3{margin:0 0 15px 0;color:#c7d2fe;font-size:16px}
+  .modal .close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0;margin:-5px -5px 0 0}
+  .modal .close:hover{color:var(--text)}
+  .student-list{display:grid;gap:8px;margin-top:15px}
+  .student-item{
+    display:flex;align-items:center;gap:10px;padding:8px;background:#0b1120;border:1px solid #1f2937;border-radius:6px;cursor:pointer;transition:all 0.2s
+  }
+  .student-item:hover{background:#1a2332;border-color:#22d3ee}
+  .student-item.available{opacity:1}
+  .student-item.unavailable{opacity:0.5;cursor:not-allowed}
+  .student-color{width:12px;height:12px;border-radius:50%;border:1px solid #0004}
+  .avatar{width:18px;height:18px;border-radius:50%;object-fit:cover;border:1px solid #0006;background:#0b1120}
+  .chip .avatar{width:16px;height:16px;margin-right:6px;border-color:#0003}
+  .student-info{flex:1}
+  .student-name{font-weight:600;color:var(--text)}
+  .student-details{font-size:11px;color:var(--muted);margin-top:2px}
+  .shift-info{background:#0b1120;border:1px solid #1f2937;border-radius:6px;padding:10px;margin-bottom:15px}
+  .shift-info .shift-title{font-weight:600;color:#c7d2fe;margin-bottom:5px}
+  .shift-info .shift-details{font-size:12px;color:var(--muted)}
+  
+  /* NEW: Swap Modal uses same modal styles */
+  
+  /* NEW: 3-Month View Styles */
+  .three-month-container{
+    display:flex;gap:20px;overflow-x:auto;padding:10px 0
+  }
+  .three-month-month{
+    min-width:400px;flex:1;background:var(--panel);border:1px solid #223;border-radius:12px;padding:15px
+  }
+  .three-month-header{
+    text-align:center;margin-bottom:15px;padding-bottom:10px;border-bottom:1px solid #1f2937
+  }
+  .three-month-header h3{
+    margin:0;color:#c7d2fe;font-size:16px
+  }
+  .three-month-calendar{
+    min-height:600px
+  }
+  .view-toggle-active{
+    background:#22d3ee !important;color:#000 !important;font-weight:600
+  }
+  
+  @media (max-width: 1100px){
+    .grid{grid-template-columns:1fr}
+    .three-month-container{flex-direction:column;gap:15px}
+    .three-month-month{min-width:auto}
+  }
+  @media print{
+    header,.controls,.toolbar,details{display:none !important}
+    body{background:white;color:black}
+    .panel,.calendar{border:none}
+    .day{break-inside:avoid}
+    .chip{color:black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;}
+    .student-color{-webkit-print-color-adjust: exact; print-color-adjust: exact;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>StudentShiftScheduler Enhanced</h1>
+  <div class="sub">
+    Enhanced version with Assessment Periods, 3-Month View, and Bidirectional Swaps.
+    Upload CSV or enter students manually, configure month and shift templates, then click "Run Schedule".
+    Drag-and-drop names between shifts, and revalidate automatically. Export to CSV or per-student ICS.
+  </div>
+  <div class="usage" style="margin-top:8px">
+    <b>Quick start:</b> Click "Load sample", pick a month (e.g., 2025-09), then "Run Schedule".
+    Keyboard: <span class="kbd">Ctrl+L</span> load sample, <span class="kbd">Ctrl+R</span> run, <span class="kbd">←/→</span> navigate month, <span class="kbd">Ctrl+P</span> print, <span class="kbd">Ctrl+S</span> save, <span class="kbd">Ctrl+O</span> load, <span class="kbd">Ctrl+E</span> export CSV, <span class="kbd">Ctrl+I</span> export ICS, <span class="kbd">Ctrl+V</span> validate, <span class="kbd">Ctrl+B</span> rebalance, <span class="kbd">Ctrl+T</span> toggle view.
+  </div>
+  <div class="header-actions">
+    <button id="hdrLoadSampleBtn" class="secondary">Load sample</button>
+    <button id="hdrRunBtn">Run Scheduler</button>
+    <button id="hdrRebalanceBtn" class="warn">Rebalance</button>
+    <button id="hdrValidateBtn" class="secondary">Validate</button>
+    <button id="hdrToggleViewBtn" class="secondary">3-Month View</button>
+    <button id="hdrAdminModeBtn" class="admin-mode">Enable Admin Mode</button>
+    <div class="spacer"></div>
+    <button id="hdrSaveBtn" class="secondary">Save</button>
+    <button id="hdrLoadBtn" class="secondary">Load</button>
+    <button id="hdrClearBtn" class="secondary">Clear</button>
+    <button id="hdrExportCsvBtn" class="secondary">Export CSV</button>
+    <button id="hdrExportIcsBtn" class="secondary">Export ICS</button>
+    <button id="hdrPrintBtn" class="secondary">Print</button>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="panel controls">
+    <div class="panel summary" style="margin-bottom:15px">
+      <h3>Summary & Warnings</h3>
+      <div id="summaryWarnings" class="small warn-txt"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Weekly hrs</th>
+            <th>Monthly hrs</th>
+            <th>Openings</th>
+            <th>Closings</th>
+            <th>Conflicts</th>
+          </tr>
+        </thead>
+        <tbody id="summaryTable"></tbody>
+      </table>
+    </div>
+    
+    <h3>Inputs & Controls</h3>
+
+    <div class="row">
+      <button id="loadSampleBtn" class="secondary">Load sample</button>
+      <input type="file" id="csvFile" accept=".csv">
+      <button id="importCsvBtn">Import CSV</button>
+    </div>
+
+    <div class="row twocol">
+      <div>
+        <label>Year</label><br>
+        <input type="number" id="year" min="2000" max="2100" value="">
+      </div>
+      <div>
+        <label>Month</label><br>
+        <select id="month"></select>
+      </div>
+    </div>
+
+    <div class="row twocol">
+      <div>
+        <label>Granularity</label><br>
+        <select id="granularity">
+          <option value="60">1-hour</option>
+          <option value="30">30-min</option>
+        </select>
+      </div>
+      <div>
+        <label>Test week mode</label><br>
+        <select id="testWeekMode">
+          <option value="off">Off</option>
+          <option value="on">On (max 4 per shift)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Monthly Contract Targets -->
+    <div class="panel" style="margin-top:10px">
+      <h3>Monthly Contract Targets</h3>
+      <div class="row twocol">
+        <div>
+          <label>Default monthly target (hours, max 72)</label><br>
+          <input type="number" id="defaultMonthlyTarget" min="1" max="72" value="72" style="width:120px">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button id="applyMonthlyTargetBtn" class="secondary" style="margin-left:8px">Apply to all students</button>
+        </div>
+      </div>
+      <div class="small">Sets each student's contracted monthly hours to this value (capped at 72). You can still override per-student via CSV or edit-in-place later.</div>
+    </div>
+
+    <!-- NEW: Assessment Period Management -->
+    <div class="panel" style="margin-top:10px">
+      <h3>Assessment Periods</h3>
+      <div id="assessmentPeriodsList" style="width:100%;margin-bottom:8px"></div>
+      <div class="row" style="margin-top:8px">
+        <input type="date" id="assessmentStartDate" style="width:120px">
+        <input type="date" id="assessmentEndDate" style="width:120px">
+        <input type="text" id="assessmentName" placeholder="Period Name" style="width:100px">
+        <button id="addAssessmentPeriodBtn" class="secondary">Add</button>
+      </div>
+      <div class="small">Assessment periods allow Saturday operations and special test day handling.</div>
+    </div>
+
+    <div class="panel" style="margin-top:10px">
+      <h3>Test Day Shifts</h3>
+      <div id="testShiftsList" style="width:100%;margin-bottom:8px"></div>
+      <div class="row" style="margin-top:8px">
+        <input type="date" id="testDate" style="width:120px">
+        <input type="time" id="testStart" value="06:00" style="width:80px">
+        <input type="time" id="testEnd" value="06:30" style="width:80px">
+        <input type="number" id="testRequired" min="1" max="10" value="1" style="width:60px" placeholder="Req">
+        <input type="text" id="testName" placeholder="Test Name" style="width:100px">
+        <button id="addTestShiftBtn" class="secondary">Add</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="suggestEarlyOpeningBtn" class="warn" style="font-size:11px;padding:6px 8px">Suggest Early Opening for Large Tests</button>
+      </div>
+      <div class="small" style="margin-top:6px">
+        <strong>Enhanced Features:</strong><br>
+        • Dynamic capacity: 1-10 assistants per test shift<br>
+        • Early opening: 06:00 start time for large tests<br>
+        • Assessment period integration: Saturday operations enabled<br>
+        • Drag-and-drop capacity adjustment in calendar view<br>
+        • Smart suggestions for early opening shifts
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:10px">
+      <h3>Operational Hours</h3>
+       <div class="row twocol">
+         <div>
+           <label>Default start time</label><br>
+           <input type="time" id="opStart" value="06:00">
+         </div>
+         <div>
+           <label>Default end time</label><br>
+           <input type="time" id="opEnd" value="19:00">
+         </div>
+       </div>
+      <div class="row">
+        <label>Special hours</label>
+        <div id="specialHoursList" style="width:100%;margin-bottom:8px"></div>
+        <div class="row" style="margin-top:8px">
+          <input type="date" id="specialDate" style="width:120px">
+          <input type="time" id="specialStart" value="09:00" style="width:80px">
+          <input type="time" id="specialEnd" value="18:00" style="width:80px">
+          <input type="text" id="specialName" placeholder="Name" style="width:100px">
+          <button id="addSpecialBtn" class="secondary">Add</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Batch holidays - School breaks</label>
+        <div id="batchHolidaysList" style="width:100%;margin-bottom:8px"></div>
+        <div class="row" style="margin-top:8px">
+          <input type="date" id="bhStart" style="width:140px">
+          <input type="date" id="bhEnd" style="width:140px">
+          <input type="text" id="bhName" placeholder="Name (e.g., Winter Break)" style="width:160px">
+          <button id="addBatchHolidayBtn" class="secondary">Add</button>
+        </div>
+      </div>
+      <div class="row">
+        <button id="updateOpHoursBtn" class="secondary">Update operational hours</button>
+      </div>
+    </div>
+
+     <div class="panel" style="margin-top:10px">
+       <h3>Shift templates</h3>
+       <div id="shiftTemplates"></div>
+       <div class="small">Fixed 1-hour shifts from 06:30 to 18:30. Each shift can have up to the number of students employed. During test week mode, each shift may schedule up to 4 students.</div>
+     </div>
+
+
+
+
+    <div class="panel" style="margin-top:10px">
+      <h3>Algorithm logs</h3>
+      <details open>
+        <summary>Show/Hide</summary>
+      <div id="logs" class="log"></div>
+      <div class="row" style="margin-top:6px">
+        <label class="small"><input type="checkbox" id="showCandidatesChk"> Show candidates per shift</label>
+        <button id="downloadTraceBtn" class="secondary">Download trace</button>
+      </div>
+      </details>
+    </div>
+
+
+    <div class="panel" style="margin-top:10px">
+      <h3>Swap Debts</h3>
+      <div id="debtsList"></div>
+    </div>
+
+    <div class="panel" style="margin-top:10px">
+      <h3>Usage Guide</h3>
+       <div class="usage">
+         - Upload CSV or click "Load sample".<br>
+         - Configure operational hours (default times, public holidays, special hours, batch holidays for school breaks) before scheduling.<br>
+         - Configure the month/year, granularity, and test day opening shift option.<br>
+         - Click "Run Schedule" to generate the calendar. Hardest shifts are filled first, prioritizing students with the least remaining weekly hours and lowest monthly totals, with fairness to openings/closings.<br>
+         - Drag a student chip between shifts to tweak. The scheduler revalidates constraints and highlights conflicts in red if any arise.<br>
+         - Use "Rebalance" to improve contracted hours and fairness after manual edits.<br>
+         - Export CSV for the full schedule or ICS files per student.<br>
+         - "Test week mode" temporarily allows up to 4 per shift.<br>
+         - "Test day shifts" allows adding custom shifts with specific dates, times, and required staff numbers.<br>
+         - Fixed 1-hour shifts from 06:30 to 18:30. Each shift can have multiple students (up to the number employed). Opening and closing shifts always require at least 1 person.
+       </div>
+    </div>
+
+  </div>
+
+  <div id="calendar" class="calendar panel">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="legend">
+        <span><span class="sq" style="background:#0a1b3a;"></span> Shift</span>
+        <span><span class="sq" style="background:var(--danger);"></span> Unfillable</span>
+        <span><span class="sq" style="background:var(--warn);"></span> At risk</span>
+        <span><span class="sq" style="background:#a78bfa;"></span> Assessment Period</span>
+        <span><span class="sq" style="background:#22d3ee;"></span> Test Day</span>
+      </div>
+      <div class="row">
+        <button id="prevMonthBtn" class="secondary">◀</button>
+        <button id="nextMonthBtn" class="secondary">▶</button>
+        <button id="fillOpenCloseBtn" class="secondary">Fill Open/Close</button>
+      <select id="weekFilter" class="secondary" style="min-width:120px">
+        <option value="all">All Weeks</option>
+        <option value="0">Week 1</option>
+        <option value="1">Week 2</option>
+        <option value="2">Week 3</option>
+        <option value="3">Week 4</option>
+        <option value="4">Week 5</option>
+      </select>
+      </div>
+    </div>
+    <div class="cal-head">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div id="calGrid" class="cal-grid"></div>
+  </div>
+</div>
+
+<!-- NEW: Student Selection Modal -->
+<div id="studentSelectionModal" class="modal-overlay">
+  <div class="modal">
+    <button class="close" onclick="closeStudentSelectionModal()">&times;</button>
+    <h3>Add Student to Shift</h3>
+    <div id="shiftInfo" class="shift-info">
+      <div class="shift-title">Shift Details</div>
+      <div class="shift-details">Loading...</div>
+    </div>
+    <div id="studentList" class="student-list">
+      <!-- Student list will be populated here -->
+    </div>
+  </div>
+</div>
+
+<!-- NEW: Swap Modal -->
+<div id="swapModal" class="modal-overlay">
+  <div class="modal">
+    <button class="close" onclick="closeSwapModal()">&times;</button>
+    <h3>Swap/Replace on Shift</h3>
+    <div id="swapShiftInfo" class="shift-info">
+      <div class="shift-title">Shift Details</div>
+      <div class="shift-details">Loading...</div>
+    </div>
+    <div id="swapStudentList" class="student-list"></div>
+  </div>
+  
+</div>
+
+<script>
+(function(){
+  try{
+    if (location.protocol !== 'file:'){
+      import('./modules/main.js').then(m=>{ try{ m.bootstrap && m.bootstrap(); }catch(e){} }).catch(()=>{});
+    }
+  }catch(e){}
+})();
+</script>
+
+<script>
+/* ===========================
+   Data models
+=========================== */
+const state = {
+  students: [], // {id,name,color,weekly_max_hours,contracted_monthly_hours,availability:{weekly:[],unavailable_dates:[]}}
+  templates: [], // {id,start,end,required,isOpening,isClosing}
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(), // 0-based
+  granularity: 60,
+  testWeekMode: 'off',
+  testShifts: [], // [{date: '2025-09-15', start: '06:00', end: '06:30', required: 2, name: 'Test Day'}]
+  schedule: {}, // key: date ISO + ' ' + start → {date,start,end,required,assignees:[studentId], isOpening,isClosing, candidates:[...] }
+  logs: [],
+  fairness: {}, // studentId -> {openings, closings}
+  assignments: {}, // studentId -> [{date,start,end}]
+  warnings: [],
+  operationalHours: {
+    defaultStart: '06:00',
+    defaultEnd: '19:00',
+    publicHolidays: [], // [{date: '2025-12-25', name: 'Christmas Day'}]
+    specialHours: [], // [{date: '2025-12-24', start: '09:00', end: '14:00', name: 'Christmas Eve'}]
+    batchHolidays: [] // [{startDate: '2025-12-20', endDate: '2025-01-05', name: 'Winter Break'}]
+  },
+  // NEW: Enhanced features
+  assessmentPeriods: [], // [{startDate: '2025-09-01', endDate: '2025-11-30', name: 'Term 4 Assessments'}]
+  swapDebts: [], // [{from: 'student1', to: 'student2', shift: '2025-09-15 09:00', status: 'pending'}]
+  threeMonthView: false, // Toggle for 3-month view
+  currentViewRange: { start: '', end: '' }, // Current view range for 3-month mode
+};
+
+let uid = 1;
+const genId = () => (uid++).toString();
+
+// Deterministic color assignment so each person keeps the same color year-round
+const STUDENT_COLOR_PALETTE = [
+  '#60a5fa','#34d399','#f472b6','#f59e0b','#a78bfa','#4ade80','#f87171',
+  '#22d3ee','#fb7185','#84cc16','#f97316','#38bdf8','#e879f9','#10b981'
+];
+function colorFromString(seed){
+  const s = String(seed||'');
+  let h=0; for (let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
+  return STUDENT_COLOR_PALETTE[h % STUDENT_COLOR_PALETTE.length];
+}
+
+/* ===========================
+   Utilities
+=========================== */
+function log(msg){
+  state.logs.push(msg);
+  if (state.logs.length > 400) state.logs.shift();
+  document.getElementById('logs').textContent = state.logs.slice(-400).join('\n');
+}
+function pad(n){ return n.toString().padStart(2,'0'); }
+function toTimeStr(minutes){ const h = Math.floor(minutes/60), m = minutes%60; return pad(h)+':'+pad(m); }
+function parseTimeStr(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+function dateISO(y,m,d){ return `${y}-${pad(m+1)}-${pad(d)}`; }
+function sameDay(a,b){ return a===b; }
+function weekKey(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  // Simple week index within month (Sun-start)
+  const monthStart = new Date(d.getFullYear(), d.getMonth(),1);
+  const dayIndex = Math.floor((d - monthStart)/(1000*60*60*24));
+  return Math.floor((dayIndex + monthStart.getDay())/7);
+}
+function overlap(startA,endA,startB,endB){ return Math.max(startA,startB) < Math.min(endA,endB); }
+function range(a,b,step=1){ const out=[]; for(let x=a;x<b;x+=step) out.push(x); return out; }
+
+function deepCopy(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+/* ===========================
+   NEW: Assessment Period Management
+=========================== */
+function addAssessmentPeriod(){
+  const startDate = document.getElementById('assessmentStartDate').value;
+  const endDate = document.getElementById('assessmentEndDate').value;
+  const name = document.getElementById('assessmentName').value.trim();
+  
+  if (!startDate || !endDate || !name) {
+    alert('Please fill in all fields');
+    return;
+  }
+  
+  // Check if dates overlap with existing periods
+  const overlaps = state.assessmentPeriods.some(ap => {
+    const existingStart = new Date(ap.startDate + 'T00:00:00');
+    const existingEnd = new Date(ap.endDate + 'T00:00:00');
+    const newStart = new Date(startDate + 'T00:00:00');
+    const newEnd = new Date(endDate + 'T00:00:00');
+    return (newStart <= existingEnd && newEnd >= existingStart);
+  });
+  
+  if (overlaps) {
+    alert('Assessment period overlaps with existing period');
+    return;
+  }
+  
+  state.assessmentPeriods.push({startDate, endDate, name});
+  renderAssessmentPeriodsList();
+  renderBatchHolidaysList();
+  
+  // Clear form
+  document.getElementById('assessmentStartDate').value = '';
+  document.getElementById('assessmentEndDate').value = '';
+  document.getElementById('assessmentName').value = '';
+  
+  log(`Added assessment period: ${name} (${startDate} to ${endDate})`);
+}
+
+function removeAssessmentPeriod(startDate, endDate){
+  state.assessmentPeriods = state.assessmentPeriods.filter(ap => !(ap.startDate === startDate && ap.endDate === endDate));
+  renderAssessmentPeriodsList();
+  log(`Removed assessment period: ${startDate} to ${endDate}`);
+}
+
+function renderAssessmentPeriodsList(){
+  const container = document.getElementById('assessmentPeriodsList');
+  container.innerHTML = '';
+  
+  if (state.assessmentPeriods.length === 0) {
+    container.innerHTML = '<div class="small" style="color:#64748b;padding:8px">No assessment periods configured</div>';
+    return;
+  }
+  
+  state.assessmentPeriods.forEach(ap => {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.style.marginBottom = '4px';
+    div.style.padding = '6px';
+    div.style.background = '#0b1120';
+    div.style.border = '1px solid #1f2937';
+    div.style.borderRadius = '6px';
+    div.innerHTML = `
+      <div class="tag">${ap.startDate}</div>
+      <div class="tag">${ap.endDate}</div>
+      <div class="tag">${ap.name}</div>
+      <button class="secondary" onclick="removeAssessmentPeriod('${ap.startDate}', '${ap.endDate}')" style="margin-left:auto">Remove</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function isAssessmentPeriod(dateStr){
+  const checkDate = new Date(dateStr + 'T00:00:00');
+  return state.assessmentPeriods.some(ap => {
+    const startDate = new Date(ap.startDate + 'T00:00:00');
+    const endDate = new Date(ap.endDate + 'T00:00:00');
+    return checkDate >= startDate && checkDate <= endDate;
+  });
+}
+
+/* ===========================
+   Parsing / Input (from VERSION 1)
+=========================== */
+function loadSample(){
+  const csv = `id,name,weekly_max_hours,contracted_monthly_hours,color,availability
+1,Alice,18,72,#FFB3BA,"{""weekly"": [{""day"":""Mon"",""start"":""09:00"",""end"":""17:00""},{""day"":""Wed"",""start"":""09:00"",""end"":""12:00""}], ""unavailable_dates"": [{""date"":""2025-09-12"",""start"":""10:00"",""end"":""12:00""}]}"
+2,Bob,12,48,#BAFFC9,"{""weekly"": [{""day"":""Tue"",""start"":""13:00"",""end"":""18:00""},{""day"":""Thu"",""start"":""09:00"",""end"":""15:00""}], ""unavailable_dates"": []}"
+3,Carla,16,64,#BDE0FF,"{""weekly"": [{""day"":""Mon"",""start"":""09:00"",""end"":""20:00""},{""day"":""Fri"",""start"":""09:00"",""end"":""17:00""}], ""unavailable_dates"": [{""date"":""2025-09-10"",""start"":""09:00"",""end"":""11:00""}]}"
+4,Diego,18,72,#FFD6A5,"{""weekly"": [{""day"":""Wed"",""start"":""12:00"",""end"":""18:00""},{""day"":""Fri"",""start"":""10:00"",""end"":""16:00""}], ""unavailable_dates"": []}"
+5,Eva,10,40,#E0BBE4,"{""weekly"": [{""day"":""Tue"",""start"":""09:00"",""end"":""12:00""},{""day"":""Thu"",""start"":""12:00"",""end"":""18:00""}], ""unavailable_dates"": [{""date"":""2025-09-19"",""start"":""14:00"",""end"":""16:00""}]}"`;
+  parseCSV(csv);
+  state.year = 2025; state.month = 8;
+  renderControls();
+  renderCalendar();
+  defaultTemplatesIfEmpty();
+  updateTemplateRequirements();
+  updateTestRequiredMax();
+  log('Loaded sample dataset.');
+  showFeedback('Sample data loaded (5 students, September 2025)');
+}
+
+function parseCSV(csvText){
+  // Generic CSV reader (handles quoted cells)
+  const lines = csvText.split(/\r?\n/).filter(Boolean);
+  if (!lines.length) return alert('Empty CSV');
+  const header = lines[0].split(',').map(s=>s.trim());
+  
+  log(`CSV Headers: ${header.join(' | ')}`);
+  log(`Has 'availability' column: ${header.includes('availability')}`);
+
+  // Mode A: our scheduler CSV (has 'availability' column)
+  if (header.includes('availability')){
+    log('Using Mode A: Standard scheduler CSV format');
+    const rows = lines.slice(1);
+    const students = [];
+    for(const line of rows){
+      const cols = [];
+      let cur='', inQ=false;
+      for (let i=0;i<line.length;i++){
+        const ch = line[i];
+        if (ch === '"' && line[i+1] === '"'){ cur+='"'; i++; continue; }
+        if (ch === '"'){ inQ = !inQ; continue; }
+        if (ch === ',' && !inQ){ cols.push(cur); cur=''; continue; }
+        cur+=ch;
+      }
+      cols.push(cur);
+      const obj = {}; header.forEach((h,idx)=>obj[h]=cols[idx]);
+      let availability = {weekly:[], unavailable_dates:[]};
+      const availStr = obj['availability'] || '{}';
+      try{ availability = JSON.parse(availStr); }
+      catch(e){ try{ availability = JSON.parse(availStr.replace(/""/g,'"')); }catch(_){}}
+      students.push({
+        id: obj.id || genId(),
+        name: obj.name || ('Student'+Math.floor(Math.random()*1000)),
+        color: obj.color || '#BDE0FF',
+        avatar_url: obj.avatar_url || '',
+        weekly_max_hours: Number(obj.weekly_max_hours||18),
+        contracted_monthly_hours: Number(obj.contracted_monthly_hours||0),
+        availability
+      });
+    }
+    state.students = students;
+    renderSummary();
+    updateTemplateRequirements();
+    updateTestRequiredMax();
+    showFeedback(`Imported ${students.length} students from CSV`);
+    return;
+  }
+  // Continue with Google Form parsing...
+  log('Using Mode B: Google Form CSV format');
+  // [Google Form parsing logic will be added in next step]
+}
+
+function addSpecialHours(){
+  const date = document.getElementById('specialDate').value;
+  const start = document.getElementById('specialStart').value;
+  const end = document.getElementById('specialEnd').value;
+  const name = document.getElementById('specialName').value.trim();
+  
+  if (!date || !start || !end || !name) {
+    alert('Please fill in all fields');
+    return;
+  }
+  
+  const exists = state.operationalHours.specialHours.some(sh => sh.date === date);
+  if (exists) {
+    alert('Special hours for this date already exist');
+    return;
+  }
+  
+  state.operationalHours.specialHours.push({date, start, end, name});
+  renderSpecialHoursList();
+  document.getElementById('specialDate').value = '';
+  document.getElementById('specialName').value = '';
+  log(`Added special hours: ${date} ${start}-${end} (${name})`);
+}
+
+function removeSpecialHours(date){
+  state.operationalHours.specialHours = state.operationalHours.specialHours.filter(sh => sh.date !== date);
+  renderSpecialHoursList();
+  log(`Removed special hours for ${date}`);
+}
+
+function renderSpecialHoursList(){
+  const container = document.getElementById('specialHoursList');
+  container.innerHTML = '';
+  
+  if (state.operationalHours.specialHours.length === 0) {
+    container.innerHTML = '<div class="small" style="color:#64748b;padding:8px">No special hours configured</div>';
+    return;
+  }
+  
+  state.operationalHours.specialHours.forEach(sh => {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.style.marginBottom = '4px';
+    div.style.padding = '6px';
+    div.style.background = '#0b1120';
+    div.style.border = '1px solid #1f2937';
+    div.style.borderRadius = '6px';
+    div.innerHTML = `
+      <div class="tag">${sh.date}</div>
+      <div class="tag">${sh.start}-${sh.end}</div>
+      <div class="tag">${sh.name}</div>
+      <button class="secondary" onclick="removeSpecialHours('${sh.date}')" style="margin-left:auto">Remove</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function renderBatchHolidaysList(){
+  const container = document.getElementById('batchHolidaysList');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!state.operationalHours.batchHolidays.length){
+    container.innerHTML = '<div class="small" style="color:#64748b;padding:8px">No batch holidays configured</div>';
+    return;
+  }
+  state.operationalHours.batchHolidays.forEach(bh=>{
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.style.marginBottom = '4px';
+    div.style.padding = '6px';
+    div.style.background = '#0b1120';
+    div.style.border = '1px solid #1f2937';
+    div.style.borderRadius = '6px';
+    div.innerHTML = `
+      <div class="tag">${bh.startDate} → ${bh.endDate}</div>
+      <div class="tag">${bh.name||''}</div>
+      <button class="secondary" onclick="removeBatchHoliday('${bh.startDate}','${bh.endDate}')" style="margin-left:auto">Remove</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function addBatchHoliday(){
+  const start = document.getElementById('bhStart').value;
+  const end = document.getElementById('bhEnd').value;
+  const name = document.getElementById('bhName').value.trim();
+  if (!start || !end){ alert('Select start and end dates'); return; }
+  if (new Date(start) > new Date(end)) { alert('Start date must be before end date'); return; }
+  const exists = state.operationalHours.batchHolidays.some(b=> b.startDate===start && b.endDate===end);
+  if (exists){ alert('That range already exists'); return; }
+  state.operationalHours.batchHolidays.push({startDate:start, endDate:end, name});
+  document.getElementById('bhStart').value='';
+  document.getElementById('bhEnd').value='';
+  document.getElementById('bhName').value='';
+  renderBatchHolidaysList();
+  log(`Added batch holiday: ${start} → ${end} ${name?('('+name+')'):''}`);
+}
+
+function removeBatchHoliday(start,end){
+  state.operationalHours.batchHolidays = state.operationalHours.batchHolidays.filter(b=> !(b.startDate===start && b.endDate===end));
+  renderBatchHolidaysList();
+}
+
+function addTestShift(){
+  const date = document.getElementById('testDate').value;
+  const start = document.getElementById('testStart').value;
+  const end = document.getElementById('testEnd').value;
+  const required = Number(document.getElementById('testRequired').value) || 1;
+  const name = document.getElementById('testName').value.trim();
+  
+  if (!date || !start || !end || !name) {
+    alert('Please fill in all fields');
+    return;
+  }
+  
+  // Enhanced validation
+  if (required < 1 || required > 10) {
+    alert('Required assistants must be between 1 and 10');
+    return;
+  }
+  
+  // Check if date/time range already exists (exact match)
+  const exists = state.testShifts.some(ts => ts.date === date && ts.start === start && ts.end === end);
+  if (exists) {
+    alert('Test shift for this date and time range already exists');
+    return;
+  }
+  
+  // Enhanced test shift object with additional properties
+  const testShift = {
+    date, 
+    start, 
+    end, 
+    required, 
+    name,
+    id: genId(), // Unique ID for management
+    isLargeTest: required >= 5, // Flag for large tests
+    isEarlyOpening: start === '06:00', // Flag for early opening
+    assessmentPeriod: isAssessmentPeriod(date), // Check if in assessment period
+    maxCapacity: Math.min(required * 2, 10) // Allow up to 2x required or 10 max
+  };
+  
+  state.testShifts.push(testShift);
+  renderTestShiftsList();
+  
+  // Clear form
+  document.getElementById('testDate').value = '';
+  document.getElementById('testName').value = '';
+  
+  log(`Added enhanced test shift: ${date} ${start}-${end} (${required} required, max ${testShift.maxCapacity}) - ${name}`);
+  if (testShift.isLargeTest) log(`  → Large test detected (${required} assistants)`);
+  if (testShift.isEarlyOpening) log(`  → Early opening shift (06:00 start)`);
+  if (testShift.assessmentPeriod) log(`  → Within assessment period - Saturday operations enabled`);
+}
+
+function removeTestShift(date, start){
+  state.testShifts = state.testShifts.filter(ts => !(ts.date === date && ts.start === start));
+  renderTestShiftsList();
+  log(`Removed test shift for ${date} ${start}`);
+}
+
+function renderTestShiftsList(){
+  const container = document.getElementById('testShiftsList');
+  container.innerHTML = '';
+  
+  if (state.testShifts.length === 0) {
+    container.innerHTML = '<div class="small" style="color:#64748b;padding:8px">No test shifts configured</div>';
+    return;
+  }
+  
+  state.testShifts.forEach(ts => {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.style.marginBottom = '4px';
+    div.style.padding = '6px';
+    div.style.background = '#0b1120';
+    div.style.border = '1px solid #1f2937';
+    div.style.borderRadius = '6px';
+    
+    // Enhanced display with new properties
+    const capacityTag = ts.maxCapacity > ts.required ? 
+      `<div class="tag" style="background:#22c55e;color:#000">${ts.required}-${ts.maxCapacity}</div>` :
+      `<div class="tag">${ts.required}</div>`;
+    
+    const flags = [];
+    if (ts.isLargeTest) flags.push('<span style="color:#f59e0b">●</span>');
+    if (ts.isEarlyOpening) flags.push('<span style="color:#22d3ee">●</span>');
+    if (ts.assessmentPeriod) flags.push('<span style="color:#a78bfa">●</span>');
+    
+    div.innerHTML = `
+      <div class="tag">${ts.date}</div>
+      <div class="tag">${ts.start}-${ts.end}</div>
+      ${capacityTag}
+      <div class="tag">${ts.name}</div>
+      <div style="display:flex;gap:2px;align-items:center">
+        ${flags.join('')}
+        <button class="secondary" onclick="adjustTestShiftCapacity('${ts.id}')" style="font-size:10px;padding:2px 4px">±</button>
+        <button class="secondary" onclick="removeTestShift('${ts.date}', '${ts.start}')" style="font-size:10px;padding:2px 4px">×</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  
+  // Add legend for flags
+  const legend = document.createElement('div');
+  legend.className = 'small';
+  legend.style.marginTop = '8px';
+  legend.style.color = '#64748b';
+  legend.innerHTML = `
+    <strong>Flags:</strong> 
+    <span style="color:#f59e0b">●</span> Large test (5+ assistants) | 
+    <span style="color:#22d3ee">●</span> Early opening (06:00) | 
+    <span style="color:#a78bfa">●</span> Assessment period
+  `;
+  container.appendChild(legend);
+}
+
+function adjustTestShiftCapacity(testShiftId){
+  const testShift = state.testShifts.find(ts => ts.id === testShiftId);
+  if (!testShift) return;
+  
+  const currentRequired = testShift.required;
+  const currentMax = testShift.maxCapacity;
+  
+  const newRequired = prompt(`Adjust required assistants for ${testShift.name} (${testShift.date} ${testShift.start}-${testShift.end}):\n\nCurrent: ${currentRequired} required, ${currentMax} max capacity\n\nEnter new required count (1-10):`, currentRequired);
+  
+  if (newRequired === null) return; // User cancelled
+  
+  const required = parseInt(newRequired);
+  if (isNaN(required) || required < 1 || required > 10) {
+    alert('Please enter a valid number between 1 and 10');
+    return;
+  }
+  
+  // Update the test shift - preserve maxCapacity if it's higher than the new required
+  testShift.required = required;
+  // Only update maxCapacity if it would be lower than current, or if current is invalid
+  const suggestedMax = Math.min(required * 2, 10);
+  if (testShift.maxCapacity < required || testShift.maxCapacity > 10) {
+    testShift.maxCapacity = suggestedMax;
+  }
+  testShift.isLargeTest = required >= 5;
+  
+  renderTestShiftsList();
+  log(`Adjusted test shift capacity: ${testShift.name} now requires ${required} assistants (max ${testShift.maxCapacity})`);
+}
+
+function suggestEarlyOpeningForLargeTests(){
+  const largeTests = state.testShifts.filter(ts => ts.isLargeTest && !ts.isEarlyOpening);
+  
+  if (largeTests.length === 0) {
+    log('No large tests found that could benefit from early opening shifts');
+    return;
+  }
+  
+  log(`Found ${largeTests.length} large tests that could use early opening shifts:`);
+  
+  largeTests.forEach(test => {
+    const suggestion = `Consider adding early opening shift (06:00-06:30) for ${test.name} on ${test.date} - currently requires ${test.required} assistants`;
+    log(`  → ${suggestion}`);
+  });
+  
+  const addEarlyOpening = confirm(`Found ${largeTests.length} large tests that could benefit from early opening shifts.\n\nWould you like to automatically add early opening shifts for these tests?`);
+  
+  if (addEarlyOpening) {
+    largeTests.forEach(test => {
+      const earlyOpeningShift = {
+        date: test.date,
+        start: '06:00',
+        end: '06:30',
+        required: Math.min(2, test.required), // Early opening needs fewer assistants
+        name: `${test.name} - Early Opening`,
+        id: genId(),
+        isLargeTest: false,
+        isEarlyOpening: true,
+        assessmentPeriod: test.assessmentPeriod,
+        maxCapacity: 2
+      };
+      
+      // Check if early opening shift already exists
+      const exists = state.testShifts.some(ts => ts.date === test.date && ts.start === '06:00');
+      if (!exists) {
+        state.testShifts.push(earlyOpeningShift);
+        log(`Added early opening shift for ${test.name} on ${test.date}`);
+      }
+    });
+    
+    renderTestShiftsList();
+    log(`Successfully added early opening shifts for ${largeTests.length} large tests`);
+  }
+}
+
+/* ===========================
+   NEW: Student Selection Modal Functions
+=========================== */
+function openStudentSelectionModal(shiftKey){
+  const shift = state.schedule[shiftKey];
+  if (!shift) return;
+  
+  // Update shift info
+  const shiftInfo = document.getElementById('shiftInfo');
+  const shiftDetails = shiftInfo.querySelector('.shift-details');
+  shiftDetails.innerHTML = `
+    <strong>${shift.date}</strong> ${shift.start}-${shift.end}<br>
+    Current: ${shift.assignees.length}/${shift.required} assistants<br>
+    ${shift.testShiftName ? `Test: ${shift.testShiftName}` : 'Regular shift'}
+  `;
+  
+  // Populate student list
+  const studentList = document.getElementById('studentList');
+  studentList.innerHTML = '';
+  
+  state.students.forEach(student => {
+    const isAlreadyAssigned = shift.assignees.includes(student.id);
+    const isAvailable = !isAlreadyAssigned && canAssignStudentToShift(student.id, shift);
+    
+    // Check availability for this shift (for all students, including already assigned)
+    const availability = buildStudentAvailability(student);
+    const isAvailableAtTime = isStudentAvailable(student.id, shift.date, shift.start, shift.end, availability);
+    
+    const studentItem = document.createElement('div');
+    studentItem.className = `student-item ${isAvailable ? 'available' : 'unavailable'}`;
+    
+    if (isAvailable) {
+      studentItem.onclick = () => addStudentToShift(student.id, shiftKey);
+    }
+    
+    // Get student availability info
+    const weeklyHours = getWeeklyAssignedHours(student.id, shift.date);
+    const monthlyHours = getTotalMonthlyHours(student.id);
+    const conflicts = getStudentConflicts(student.id, shift);
+    
+    // Availability indicator
+    const availabilityIcon = isAvailableAtTime ? '✅' : '🔒';
+    
+    const avatar = student.avatar_url ? `<img class=\"avatar\" src=\"${student.avatar_url}\" onerror=\"this.remove();\">` : `<div class=\"student-color\" style=\"background:${student.color}\"></div>`;
+    studentItem.innerHTML = `
+      ${avatar}
+      <div class="student-info">
+        <div class="student-name">${student.name} ${availabilityIcon}</div>
+        <div class="student-details">
+          Weekly: ${weeklyHours.toFixed(1)}/${student.weekly_max_hours}h | 
+          Monthly: ${monthlyHours.toFixed(1)}h
+          ${conflicts.length > 0 ? ` | <span style="color:#ef4444">Conflicts: ${conflicts.join(', ')}</span>` : ''}
+          ${isAlreadyAssigned ? ' | <span style="color:#f59e0b">Already assigned</span>' : ''}
+        </div>
+      </div>
+    `;
+    
+    studentList.appendChild(studentItem);
+  });
+  
+  // Show modal
+  document.getElementById('studentSelectionModal').style.display = 'flex';
+}
+
+function closeStudentSelectionModal(){
+  document.getElementById('studentSelectionModal').style.display = 'none';
+}
+
+function addStudentToShift(studentId, shiftKey){
+  const shift = state.schedule[shiftKey];
+  if (!shift) return;
+  
+  // Check if student can be assigned
+  if (!canAssignStudentToShift(studentId, shift)) {
+    alert('Cannot assign student to this shift due to conflicts or capacity limits');
+    return;
+  }
+  
+  // Add student to shift
+  shift.assignees.push(studentId);
+  
+  // Update fairness tracking
+  if (shift.isOpening) state.fairness[studentId].openings++;
+  if (shift.isClosing) state.fairness[studentId].closings++;
+  
+  // Re-render calendar
+  renderCalendar();
+  
+  // Close modal
+  closeStudentSelectionModal();
+  
+  log(`Added ${getStudentName(studentId)} to shift ${shift.date} ${shift.start}-${shift.end}`);
+}
+
+function canAssignStudentToShift(studentId, shift){
+  // Check capacity
+  const maxCapacity = shift.maxCapacity || shift.required;
+  if (shift.assignees.length >= maxCapacity) return false;
+  
+  // Check if already assigned
+  if (shift.assignees.includes(studentId)) return false;
+  
+  // Check availability
+  const student = state.students.find(s => s.id === studentId);
+  if (!student) return false;
+  
+  // Check if student is available at this time
+  const availability = buildStudentAvailability(student);
+  if (!isStudentAvailable(studentId, shift.date, shift.start, shift.end, availability)) {
+    return false;
+  }
+  
+  // Check weekly hours limit
+  const weeklyHours = getWeeklyAssignedHours(studentId, shift.date);
+  const shiftHours = (parseTimeStr(shift.end) - parseTimeStr(shift.start)) / 60;
+  if (weeklyHours + shiftHours > student.weekly_max_hours) return false;
+  
+  // Check monthly hours limit (per the month of this shift)
+  const monthlyHours = getTotalMonthlyHours(studentId, shift.date);
+  if (student.contracted_monthly_hours && monthlyHours + shiftHours > student.contracted_monthly_hours) return false;
+  
+  // Check for conflicts with existing assignments
+  const conflicts = validateAssignment(studentId, shift);
+  if (conflicts.length > 0) return false;
+  
+  return true;
+}
+
+function getStudentName(studentId){
+  const student = state.students.find(s => s.id === studentId);
+  return student ? student.name : 'Unknown';
+}
+
+function getWeeklyAssignedHours(studentId, dateStr){
+  const weekStart = getWeekStart(dateStr);
+  let totalHours = 0;
+  
+  for (let i = 0; i < 7; i++) {
+    const checkDate = new Date(weekStart);
+    checkDate.setDate(checkDate.getDate() + i);
+    const dateKey = checkDate.toISOString().split('T')[0];
+    
+    Object.values(state.schedule).forEach(shift => {
+      if (shift.date === dateKey && shift.assignees.includes(studentId)) {
+        totalHours += (parseTimeStr(shift.end) - parseTimeStr(shift.start)) / 60;
+      }
+    });
+  }
+  
+  return totalHours;
+}
+
+function getTotalMonthlyHours(studentId, dateStr){
+  // Sum hours only for the calendar month of dateStr
+  // If dateStr is omitted, fall back to current state.month/state.year
+  let year, month;
+  if (dateStr){
+    const d = new Date(dateStr + 'T00:00:00');
+    year = d.getFullYear();
+    month = d.getMonth();
+  } else {
+    year = state.year;
+    month = state.month;
+  }
+  let totalHours = 0;
+  Object.values(state.schedule).forEach(shift => {
+    if (!shift.assignees.includes(studentId)) return;
+    const sd = new Date(shift.date + 'T00:00:00');
+    if (sd.getFullYear() === year && sd.getMonth() === month){
+      totalHours += (parseTimeStr(shift.end) - parseTimeStr(shift.start)) / 60;
+    }
+  });
+  return totalHours;
+}
+
+function getWeekStart(dateStr){
+  const date = new Date(dateStr + 'T00:00:00');
+  const dayOfWeek = date.getDay();
+  const weekStart = new Date(date);
+  weekStart.setDate(date.getDate() - dayOfWeek);
+  return weekStart;
+}
+
+function getStudentConflicts(studentId, shift){
+  const conflicts = [];
+  
+  // Check for overlapping shifts on the same day
+  Object.values(state.schedule).forEach(otherShift => {
+    if (otherShift.date === shift.date && 
+        otherShift.assignees.includes(studentId) && 
+        otherShift !== shift) {
+      
+      const shiftStart = parseTimeStr(shift.start);
+      const shiftEnd = parseTimeStr(shift.end);
+      const otherStart = parseTimeStr(otherShift.start);
+      const otherEnd = parseTimeStr(otherShift.end);
+      
+      if (Math.max(shiftStart, otherStart) < Math.min(shiftEnd, otherEnd)) {
+        conflicts.push(`Overlaps with ${otherShift.start}-${otherShift.end}`);
+      }
+    }
+  });
+  
+  return conflicts;
+}
+
+/* ===========================
+   NEW: 3-Month View Functions
+=========================== */
+function toggleThreeMonthView(){
+  state.threeMonthView = !state.threeMonthView;
+  
+  // Update header button text
+  const headerToggleBtn = document.getElementById('hdrToggleViewBtn');
+  if (headerToggleBtn) {
+    if (state.threeMonthView) {
+      headerToggleBtn.textContent = 'Single Month View';
+      headerToggleBtn.classList.add('view-toggle-active');
+      log('Switched to 3-Month View - Generating schedules for all 3 months...');
+      
+      // Generate schedules for all 3 months
+      generateThreeMonthSchedules();
+    } else {
+      headerToggleBtn.textContent = '3-Month View';
+      headerToggleBtn.classList.remove('view-toggle-active');
+      log('Switched to Single Month View');
+    }
+  }
+  
+  renderCalendar();
+}
+
+function generateThreeMonthSchedules(){
+  const months = getThreeMonthRange();
+  const originalMonth = state.month;
+  const originalYear = state.year;
+  
+  log(`Generating schedules for 3 months: ${months.map(m => m.name).join(', ')}`);
+  
+  // Generate schedules for each month
+  months.forEach((monthInfo, index) => {
+    log(`Generating schedule for ${monthInfo.name}...`);
+    
+    // Temporarily set the current month/year
+    state.month = monthInfo.month;
+    state.year = monthInfo.year;
+    
+    // Run the complete scheduling process for this month
+    runScheduleForMonth(monthInfo.month, monthInfo.year);
+    
+    // Log how many shifts were created for this month
+    const monthShifts = Object.keys(state.schedule).filter(key => {
+      const shift = state.schedule[key];
+      const shiftDate = new Date(shift.date + 'T00:00:00');
+      return shiftDate.getMonth() === monthInfo.month && shiftDate.getFullYear() === monthInfo.year;
+    });
+    log(`Created ${monthShifts.length} shifts for ${monthInfo.name}`);
+  });
+  
+  // Restore original month/year
+  state.month = originalMonth;
+  state.year = originalYear;
+  
+  log('3-Month schedule generation completed!');
+}
+
+function runScheduleForMonth(month, year){
+  log(`Building shifts for ${new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}...`);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  log(`Days in month: ${daysInMonth}`);
+
+  // Ensure templates exist
+  defaultTemplatesIfEmpty();
+
+  for (let day = 1; day <= daysInMonth; day++){
+    const dateStr = dateISO(year, month, day);
+    if (!isOperationalDay(dateStr)) continue;
+    const op = getOperationalHours(dateStr);
+    const opStart = parseTimeStr(op.start);
+    const opEnd = parseTimeStr(op.end);
+
+    // Template-based hourly slots within operational hours
+    for (const t of state.templates){
+      const ts = parseTimeStr(t.start);
+      const te = parseTimeStr(t.end);
+      if (ts < opStart || te > opEnd) continue; // outside operational day
+      const key = `${dateStr} ${t.start}`;
+      state.schedule[key] = {
+        date: dateStr,
+        start: t.start,
+        end: t.end,
+        required: t.required || 1,
+        assignees: [],
+        status: 'pending',
+        isOpening: !!t.isOpening,
+        isClosing: !!t.isClosing
+      };
+    }
+
+    // Apply explicit test shifts for this date
+    const tests = state.testShifts.filter(ts => ts.date === dateStr);
+    for (const test of tests){
+      let foundOverlapping = false;
+      
+      // Find all existing shifts that overlap with the test time range
+      for (const [shiftKey, shift] of Object.entries(state.schedule)) {
+        if (shift.date === dateStr) {
+          const shiftStart = parseTimeStr(shift.start);
+          const shiftEnd = parseTimeStr(shift.end);
+          const testStart = parseTimeStr(test.start);
+          const testEnd = parseTimeStr(test.end);
+          
+          if (shiftStart < testEnd && shiftEnd > testStart) {
+            foundOverlapping = true;
+            const newReq = Math.max(shift.required||1, test.required||1);
+            shift.required = newReq;
+            const capHint = Math.max(newReq, Math.min(test.maxCapacity||newReq, state.students.length||newReq));
+            shift.maxCapacity = capHint;
+            shift.testShiftName = test.name || shift.testShiftName;
+          }
+        }
+      }
+      
+      // If no overlapping shifts found, create a dedicated slot for this test time
+      if (!foundOverlapping) {
+        const k = `${dateStr} ${test.start}`;
+        state.schedule[k] = {
+          date: dateStr,
+          start: test.start,
+          end: test.end,
+          required: test.required || 1,
+          assignees: [],
+          status: 'pending',
+          testShiftName: test.name,
+          maxCapacity: Math.min(test.maxCapacity||test.required||1, state.students.length||1)
+        };
+      }
+    }
+  }
+
+  // Initialize fairness tracking for this month
+  state.students.forEach(student => {
+    if (!state.fairness[student.id]) {
+      state.fairness[student.id] = { openings: 0, closings: 0 };
+    }
+  });
+
+  // Run the scheduling algorithm to populate shifts for this month
+  runSchedulingAlgorithm();
+  
+  // Log how many shifts were created for this month
+  const monthShifts = Object.keys(state.schedule).filter(key => {
+    const shift = state.schedule[key];
+    const shiftDate = new Date(shift.date + 'T00:00:00');
+    return shiftDate.getMonth() === month && shiftDate.getFullYear() === year;
+  });
+  
+  // Count assignments for this month
+  const monthAssignments = monthShifts.filter(key => {
+    const shift = state.schedule[key];
+    return shift.assignees && shift.assignees.length > 0;
+  });
+  
+  log(`Total shifts created for ${new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}: ${monthShifts.length}`);
+  log(`Total assignments made for ${new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}: ${monthAssignments.length}`);
+}
+
+function getThreeMonthRange(){
+  const currentMonth = state.month;
+  const currentYear = state.year;
+  
+  // Calculate the three months: previous, current, next
+  const months = [];
+  
+  for (let i = -1; i <= 1; i++) {
+    const month = new Date(currentYear, currentMonth + i, 1);
+    months.push({
+      month: month.getMonth(),
+      year: month.getFullYear(),
+      name: month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    });
+  }
+  
+  return months;
+}
+
+function renderThreeMonthCalendar(){
+  const months = getThreeMonthRange();
+  const calendarContainer = document.getElementById('calendar');
+  
+  if (!calendarContainer) {
+    console.error('Calendar container not found!');
+    return;
+  }
+  
+  // Clear existing calendar
+  calendarContainer.innerHTML = '';
+  
+  // Create 3-month container
+  const threeMonthContainer = document.createElement('div');
+  threeMonthContainer.className = 'three-month-container';
+  
+  months.forEach((monthInfo, index) => {
+    const monthDiv = document.createElement('div');
+    monthDiv.className = 'three-month-month';
+    
+    // Month header
+    const header = document.createElement('div');
+    header.className = 'three-month-header';
+    header.innerHTML = `<h3>${monthInfo.name}</h3>`;
+    monthDiv.appendChild(header);
+    
+    // Calendar for this month
+    const monthCalendar = document.createElement('div');
+    monthCalendar.className = 'three-month-calendar';
+    monthCalendar.id = `month-${index}`;
+    monthDiv.appendChild(monthCalendar);
+    
+    threeMonthContainer.appendChild(monthDiv);
+  });
+  
+  calendarContainer.appendChild(threeMonthContainer);
+  
+  // Render each month's calendar
+  months.forEach((monthInfo, index) => {
+    renderSingleMonthCalendar(monthInfo.month, monthInfo.year, `month-${index}`);
+  });
+}
+
+function renderSingleMonthCalendar(month, year, containerId){
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  // Create calendar structure for this month
+  const calDiv = document.createElement('div');
+  calDiv.className = 'calendar';
+  
+  // Calendar header
+  const calHead = document.createElement('div');
+  calHead.className = 'cal-head';
+  calHead.innerHTML = '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>';
+  calDiv.appendChild(calHead);
+  
+  // Calendar grid
+  const calGrid = document.createElement('div');
+  calGrid.className = 'cal-grid';
+  calDiv.appendChild(calGrid);
+  
+  container.appendChild(calDiv);
+  
+  // Generate days for this month
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = firstDay + daysInMonth;
+  
+  // Add placeholder cells for days before month starts
+  for (let i = 0; i < firstDay; i++) {
+    const ph = document.createElement('div');
+    calGrid.appendChild(ph);
+  }
+  
+  // Add days of the month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const day = document.createElement('div');
+    const dateStr = dateISO(year, month, d);
+    const isOpDay = isOperationalDay(dateStr);
+    const isAssessmentDay = isAssessmentPeriod(dateStr);
+    day.className = isOpDay ? 'day' : 'day non-operational';
+    if (isOpDay && isAssessmentDay) day.classList.add('assessment');
+
+    const activeAP = state.assessmentPeriods.filter(ap=>{
+      const sd = new Date(ap.startDate+'T00:00:00');
+      const ed = new Date(ap.endDate+'T00:00:00');
+      const cd = new Date(dateStr+'T00:00:00');
+      return cd>=sd && cd<=ed;
+    }).map(ap=>ap.name);
+    const hasTests = state.testShifts.some(ts=>ts.date===dateStr);
+    const badgeHTML = `
+      <div class=\"badges\">
+        ${activeAP.length?`<div class=\"badge assess tooltip\" data-tip=\"${activeAP.join(', ')}\">Assess</div>`:''}
+        ${hasTests?'<div class=\"badge test\">Test Day</div>':''}
+      </div>`;
+    let dayContent = `
+      <div class="day-header">
+        <div>${d}</div>
+        <div class="small">${new Date(dateStr).toLocaleDateString('en-US',{weekday:'short'})}</div>
+        ${badgeHTML}
+      </div>
+    `;
+
+    if (isOpDay) {
+      const opHours = getOperationalHours(dateStr);
+      // isAssessmentDay already computed above
+      const isSaturday = new Date(dateStr + 'T00:00:00').getDay() === 6;
+      const hasTestShifts = state.testShifts.some(ts => ts.date === dateStr);
+
+      // Enhanced day header with assessment period indicators
+      let dayIndicator = '';
+      if (isAssessmentDay) {
+        dayIndicator = '<span style="color:#a78bfa;font-weight:bold">●</span> ';
+      }
+      if (isSaturday && (hasTestShifts || isAssessmentDay)) {
+        dayIndicator += '<span style="color:#22d3ee;font-weight:bold">SAT</span> ';
+      }
+
+      dayContent += `
+        <div class="small" style="color:#64748b;padding:4px 8px;font-size:10px">
+          ${dayIndicator}${opHours.name}: ${opHours.start}-${opHours.end}
+        </div>
+        <div class="shifts" data-date="${dateStr}"></div>
+      `;
+    } else {
+      const batchHoliday = state.operationalHours.batchHolidays.find(bh => {
+        const startDate = new Date(bh.startDate + 'T00:00:00');
+        const endDate = new Date(bh.endDate + 'T00:00:00');
+        const checkDate = new Date(dateStr + 'T00:00:00');
+        return checkDate >= startDate && checkDate <= endDate;
+      });
+
+      const reason = batchHoliday ? batchHoliday.name : 'Non-operational';
+      dayContent += `
+        <div class="small" style="color:#64748b;padding:4px 8px;font-size:10px;text-align:center">${reason}</div>
+      `;
+    }
+
+    day.innerHTML = dayContent;
+    calGrid.appendChild(day);
+  }
+  
+  // Render shifts for this month
+  renderShiftsForMonth(month, year, calGrid);
+}
+
+function renderShiftsForMonth(month, year, calGrid){
+  const byDate = {};
+  
+  // Get shifts for this specific month
+  for (const key of Object.keys(state.schedule)){
+    const s = state.schedule[key];
+    const shiftDate = new Date(s.date + 'T00:00:00');
+    if (shiftDate.getMonth() === month && shiftDate.getFullYear() === year) {
+      byDate[s.date] = byDate[s.date] || [];
+      byDate[s.date].push(s);
+    }
+  }
+  
+  // Sort shifts by time
+  for (const dateStr of Object.keys(byDate)){
+    byDate[dateStr].sort((a,b)=> parseTimeStr(a.start)-parseTimeStr(b.start));
+  }
+
+  // Render shifts
+  const dayContainers = calGrid.querySelectorAll('.shifts');
+  for (const el of dayContainers){
+    const dateStr = el.getAttribute('data-date');
+    const shifts = byDate[dateStr] || [];
+    
+    for (const s of shifts){
+      const div = document.createElement('div');
+      div.className='shift';
+      if (s.status==='unfillable') div.classList.add('req-bad');
+      if (s.adminOverride) div.classList.add('admin-override');
+      div.setAttribute('data-key', `${s.date} ${s.start}`);
+      
+      // Make shift clickable for student selection
+      div.style.cursor = 'pointer';
+      div.onclick = (e) => {
+        e.stopPropagation();
+        openStudentSelectionModal(`${s.date} ${s.start}`);
+      };
+      
+      const shiftTitle = s.testShiftName ? `${s.start}–${s.end} (${s.testShiftName})` : `${s.start}–${s.end}`;
+      div.innerHTML = `
+        <div class="shift-title">${shiftTitle}</div>
+        <div class="assignees" data-key="${s.date} ${s.start}"></div>
+        <div class="req">${s.assignees.length}/${s.required}</div>
+      `;
+      
+      const ass = div.querySelector('.assignees');
+      // make droppable
+      ass.ondragover = (e)=>{ 
+        e.preventDefault(); 
+        ass.classList.add('drop-hint');
+        if (isAdminMode()) {
+          ass.classList.add('admin-override-target');
+        }
+      };
+      ass.ondragleave = ()=> {
+        ass.classList.remove('drop-hint');
+        ass.classList.remove('admin-override-target');
+      };
+      ass.ondrop = (e)=>{
+        e.preventDefault();
+        ass.classList.remove('drop-hint');
+        ass.classList.remove('admin-override-target');
+        const studentId = e.dataTransfer.getData('text/plain');
+        const key = ass.getAttribute('data-key');
+        handleDropAssign(studentId, key);
+      };
+      
+      // fill assignees
+      for (const stId of s.assignees){
+        ass.appendChild(renderChip(stId, s, /*draggable*/true));
+      }
+      
+      // fill placeholders if empty
+      if (!s.assignees.length){
+        const ph = document.createElement('div'); 
+        ph.className='small'; 
+        ph.style.color='#64748b'; 
+        ph.textContent='Click to add students';
+        ass.appendChild(ph);
+      }
+      
+      el.appendChild(div);
+    }
+  }
+}
+
+// addStudentManual function removed - functionality moved to CSV import
+
+function updateTestRequiredMax(){
+  const inp = document.getElementById('testRequired');
+  if (!inp) return;
+  const numStudents = Math.max(1, state.students.length);
+  const cap = (state.testWeekMode==='on') ? Math.min(4, numStudents) : numStudents;
+  const maxAllowed = Math.max(1, cap);
+  inp.max = String(maxAllowed);
+  const val = Math.max(1, Math.min(Number(inp.value||1), maxAllowed));
+  inp.value = String(val);
+}
+
+function updateOperationalHours(){
+  const defaultStart = document.getElementById('opStart').value || '09:00';
+  const defaultEnd = document.getElementById('opEnd').value || '18:00';
+  let publicHolidays = []; // No longer used - removed JSON input
+  
+  // Batch holidays are now managed through the date picker interface
+  const batchHolidays = state.operationalHours.batchHolidays || [];
+  
+  state.operationalHours = {
+    defaultStart,
+    defaultEnd,
+    publicHolidays,
+    specialHours: state.operationalHours.specialHours,
+    batchHolidays
+  };
+  
+  log(`Updated operational hours: ${defaultStart}-${defaultEnd}, ${publicHolidays.length} holidays, ${state.operationalHours.specialHours.length} special days, ${batchHolidays.length} batch holidays`);
+  renderBatchHolidaysList();
+}
+
+function isOperationalDay(dateStr){
+  const isHoliday = state.operationalHours.publicHolidays.some(h => h.date === dateStr);
+  if (isHoliday) return false;
+  
+  const isInBatchHoliday = state.operationalHours.batchHolidays.some(bh => {
+    const startDate = new Date(bh.startDate + 'T00:00:00');
+    const endDate = new Date(bh.endDate + 'T00:00:00');
+    const checkDate = new Date(dateStr + 'T00:00:00');
+    return checkDate >= startDate && checkDate <= endDate;
+  });
+  if (isInBatchHoliday) return false;
+  
+  const date = new Date(dateStr + 'T00:00:00');
+  const dayOfWeek = date.getDay();
+  
+  // Enhanced logic: Allow Saturday operations during assessment periods
+  if (dayOfWeek === 0) return false; // Never operate on Sunday
+  if (dayOfWeek === 6) { // Saturday
+    // Check if there are test shifts on this Saturday
+    const hasTestShifts = state.testShifts.some(ts => ts.date === dateStr);
+    // Check if this date is within an assessment period
+    const inAssessmentPeriod = isAssessmentPeriod(dateStr);
+    
+    if (hasTestShifts || inAssessmentPeriod) {
+      log(`Saturday operations enabled for ${dateStr}: ${hasTestShifts ? 'has test shifts' : 'within assessment period'}`);
+      return true;
+    }
+    return false; // No Saturday operations outside assessment periods
+  }
+  
+  return true; // Monday-Friday are always operational
+}
+
+function getOperationalHours(dateStr){
+  const special = state.operationalHours.specialHours.find(s => s.date === dateStr);
+  if (special) {
+    return {
+      start: special.start,
+      end: special.end,
+      name: special.name
+    };
+  }
+  
+  return {
+    start: state.operationalHours.defaultStart,
+    end: state.operationalHours.defaultEnd,
+    name: 'Normal hours'
+  };
+}
+
+function defaultTemplatesIfEmpty(){
+  if (state.templates.length) return;
+  const templates = [];
+  
+  // Enhanced template generation with early opening support
+  for (let hour = 6; hour < 18; hour++) {
+    const start = `${hour.toString().padStart(2,'0')}:30`;
+    const end = `${(hour + 1).toString().padStart(2,'0')}:30`;
+    const isOpening = hour === 6;
+    const isClosing = hour === 17;
+    const required = (isOpening || isClosing) ? 1 : 1;
+    templates.push({start, end, required, isOpening, isClosing});
+  }
+  
+  // Add early opening template (06:00-06:30) for large tests
+  templates.push({
+    start: '06:00',
+    end: '06:30', 
+    required: 1,
+    isOpening: true,
+    isClosing: false,
+    isEarlyOpening: true // Flag for early opening
+  });
+  
+  templates.forEach(t=> addTemplate(t.start,t.end,t.required,t.isOpening,t.isClosing,t.isEarlyOpening));
+}
+
+function addTemplate(start,end,required,isOpening,isClosing,isEarlyOpening){
+  state.templates.push({
+    id:genId(),
+    start,
+    end,
+    required,
+    isOpening:!!isOpening,
+    isClosing:!!isClosing,
+    isEarlyOpening:!!isEarlyOpening
+  });
+  renderTemplates();
+}
+
+function removeTemplate(id){
+  state.templates = state.templates.filter(t=>t.id!==id);
+  renderTemplates();
+}
+
+function renderTemplates(){
+  const c = document.getElementById('shiftTemplates');
+  c.innerHTML='';
+  state.templates.forEach(t=>{
+    const div = document.createElement('div');
+    div.className='row';
+    
+    // Enhanced template display with early opening indicator
+    const tags = [
+      `<div class="tag">${t.start}–${t.end}</div>`,
+      `<div class="tag">req:${t.required}</div>`
+    ];
+    
+    if (t.isEarlyOpening) {
+      tags.push('<div class="tag" style="background:#22d3ee;color:#000">Early</div>');
+    } else if (t.isOpening) {
+      tags.push('<div class="tag">Opening</div>');
+    }
+    
+    if (t.isClosing) {
+      tags.push('<div class="tag">Closing</div>');
+    }
+    
+    div.innerHTML = tags.join('');
+    c.appendChild(div);
+  });
+  
+  // Add enhanced template info
+  const info = document.createElement('div');
+  info.className = 'small';
+  info.style.marginTop = '8px';
+  info.style.color = '#64748b';
+  info.innerHTML = `
+    <strong>Enhanced Templates:</strong><br>
+    • Standard shifts: 06:30-18:30 (1-hour intervals)<br>
+    • Early opening: 06:00-06:30 for large tests<br>
+    • Dynamic capacity: 1-10 assistants per shift<br>
+    • Saturday operations: Enabled during assessment periods
+  `;
+  c.appendChild(info);
+}
+
+function updateTemplateRequirements(){
+  const numStudents = Math.max(1, state.students.length);
+  const cap = (state.testWeekMode==='on') ? Math.min(4, numStudents) : numStudents;
+  const maxAllowed = Math.max(1, cap);
+  
+  state.templates.forEach(template => {
+    if (template.isOpening || template.isClosing){
+      template.required = Math.min(2, Math.max(1, template.required||1));
+    } else {
+      template.required = 1;
+    }
+  });
+  
+  renderTemplates();
+}
+
+function renderControls(){
+  document.getElementById('year').value = state.year;
+  const mSel = document.getElementById('month');
+  mSel.innerHTML='';
+  for (let m=0;m<12;m++){
+    const opt=document.createElement('option');
+    opt.value=m; opt.textContent=new Date(2025,m,1).toLocaleString('en',{month:'long'});
+    if (m===state.month) opt.selected=true;
+    mSel.appendChild(opt);
+  }
+  document.getElementById('granularity').value = String(state.granularity);
+  document.getElementById('testWeekMode').value = state.testWeekMode;
+  
+  document.getElementById('opStart').value = state.operationalHours.defaultStart;
+  document.getElementById('opEnd').value = state.operationalHours.defaultEnd;
+  renderBatchHolidaysList();
+  
+  renderSpecialHoursList();
+  renderTestShiftsList();
+  updateTestRequiredMax();
+  renderTemplates();
+  updateTemplateRequirements();
+  renderDebtsPanel();
+}
+
+function renderCalendarSkeleton(){
+  const grid = document.getElementById('calGrid');
+  if (!grid) {
+    console.error('calGrid element not found!');
+    return;
+  }
+  grid.innerHTML='';
+  const firstDay = new Date(state.year,state.month,1).getDay();
+  const daysInMonth = new Date(state.year, state.month+1, 0).getDate();
+  const totalCells = firstDay + daysInMonth;
+  for (let i=0;i<firstDay;i++){
+    const ph = document.createElement('div');
+    grid.appendChild(ph);
+  }
+  for (let d=1; d<=daysInMonth; d++){
+    const day = document.createElement('div');
+    const dateStr = dateISO(state.year,state.month,d);
+    const isOpDay = isOperationalDay(dateStr);
+    const isAssessmentDay = isAssessmentPeriod(dateStr);
+    day.className = isOpDay ? 'day' : 'day non-operational';
+    if (isOpDay && isAssessmentDay) day.classList.add('assessment');
+    // Apply week filter dimming
+    const wf = (document.getElementById('weekFilter')||{value:'all'}).value;
+    if (wf !== 'all'){
+      const idx = Number(wf);
+      const wk = weekKey(dateStr);
+      if (wk !== idx) day.classList.add('week-dim');
+    }
+    // Build badges HTML safely
+    const activeAP = state.assessmentPeriods.filter(ap=>{
+      const sd = new Date(ap.startDate+'T00:00:00');
+      const ed = new Date(ap.endDate+'T00:00:00');
+      const cd = new Date(dateStr+'T00:00:00');
+      return cd>=sd && cd<=ed;
+    }).map(ap=>ap.name);
+    const hasTests = state.testShifts.some(ts=>ts.date===dateStr);
+    const badgeHTML = `
+      <div class="badges">
+        ${activeAP.length?`<div class="badge assess tooltip" data-tip="${activeAP.join(', ')}">Assess</div>`:''}
+        ${hasTests?'<div class="badge test">Test Day</div>':''}
+      </div>`;
+    
+    let dayContent = `
+      <div class="day-header">
+        <div>${d}</div>
+        <div class="small">${new Date(dateStr).toLocaleDateString('en-US',{weekday:'short'})}</div>
+        ${badgeHTML}
+      </div>
+    `;
+    
+    if (isOpDay) {
+      const opHours = getOperationalHours(dateStr);
+      // isAssessmentDay already computed above
+      const isSaturday = new Date(dateStr + 'T00:00:00').getDay() === 6;
+      const hasTestShifts = state.testShifts.some(ts => ts.date === dateStr);
+      
+      // Enhanced day header with assessment period indicators
+      let dayIndicator = '';
+      if (isAssessmentDay) {
+        dayIndicator = '<span style="color:#a78bfa;font-weight:bold">●</span> ';
+      }
+      if (isSaturday && (hasTestShifts || isAssessmentDay)) {
+        dayIndicator += '<span style="color:#22d3ee;font-weight:bold">SAT</span> ';
+      }
+      
+      dayContent += `
+        <div class="small" style="color:#64748b;padding:4px 8px;font-size:10px">
+          ${dayIndicator}${opHours.name}: ${opHours.start}-${opHours.end}
+        </div>
+        <div class="shifts" data-date="${dateStr}"></div>
+      `;
+    } else {
+      const batchHoliday = state.operationalHours.batchHolidays.find(bh => {
+        const startDate = new Date(bh.startDate + 'T00:00:00');
+        const endDate = new Date(bh.endDate + 'T00:00:00');
+        const checkDate = new Date(dateStr + 'T00:00:00');
+        return checkDate >= startDate && checkDate <= endDate;
+      });
+      
+      const reason = batchHoliday ? batchHoliday.name : 'Non-operational';
+      dayContent += `
+        <div class="small" style="color:#64748b;padding:4px 8px;font-size:10px;text-align:center">${reason}</div>
+      `;
+    }
+    
+    day.innerHTML = dayContent;
+    grid.appendChild(day);
+  }
+}
+
+function renderSummary(){
+  const tbody = document.getElementById('summaryTable');
+  tbody.innerHTML='';
+  const byWeek = {};
+  for (const st of state.students){
+    const weeks = {};
+    for (const slot of Object.values(state.schedule)){
+      if (!slot.assignees.includes(st.id)) continue;
+      const wk = weekKey(slot.date);
+      weeks[wk] = (weeks[wk]||0) + (parseTimeStr(slot.end)-parseTimeStr(slot.start))/60;
+    }
+    byWeek[st.id] = weeks;
+  }
+  for (const st of state.students){
+    const mon = hoursAssigned(st.id);
+    const weeks = byWeek[st.id] || {};
+    const wkStr = Object.keys(weeks).sort((a,b)=>a-b).map(k=>`${Number(k)+1}:${weeks[k].toFixed(1)}`).join(' | ');
+    const conf = countConflicts(st.id);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="sq" style="background:${st.color};vertical-align:middle"></span> ${st.name}</td>
+      <td>${wkStr||'—'}</td>
+      <td>${mon.toFixed(1)}${st.contracted_monthly_hours?('/'+st.contracted_monthly_hours):''}</td>
+      <td>${state.fairness[st.id]?.openings||0}</td>
+      <td>${state.fairness[st.id]?.closings||0}</td>
+      <td>${conf?('<span class="danger-txt">'+conf+'</span>'):'0'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  const warnBox = document.getElementById('summaryWarnings');
+  warnBox.innerHTML = '';
+  if (state.warnings.length){
+    warnBox.innerHTML = state.warnings.map(w=>`• ${w}`).join('<br>');
+  }
+}
+
+/* ===========================
+   Local Storage Save / Load
+=========================== */
+function saveState(){
+  try{
+    const data = {
+      students: state.students,
+      templates: state.templates,
+      year: state.year,
+      month: state.month,
+      granularity: state.granularity,
+      testWeekMode: state.testWeekMode,
+      testShifts: state.testShifts,
+      schedule: state.schedule,
+      operationalHours: state.operationalHours,
+      assessmentPeriods: state.assessmentPeriods,
+      swapDebts: state.swapDebts
+    };
+    localStorage.setItem('sss_state', JSON.stringify(data));
+    log('State saved to localStorage');
+  }catch(e){ alert('Save failed'); }
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem('sss_state');
+    if (!raw) return alert('No saved state found');
+    const data = JSON.parse(raw);
+    Object.assign(state, data);
+    renderControls();
+    renderCalendar();
+    renderSummary();
+    log('State loaded from localStorage');
+  }catch(e){ alert('Load failed'); }
+}
+
+function clearSavedState(){
+  localStorage.removeItem('sss_state');
+  log('Cleared saved state');
+}
+
+function hoursAssigned(studentId, filterDate=null){
+  let mins=0;
+  for (const slot of Object.values(state.schedule)){
+    if (!slot.assignees.includes(studentId)) continue;
+    if (filterDate && slot.date!==filterDate) continue;
+    mins += (parseTimeStr(slot.end)-parseTimeStr(slot.start));
+  }
+  return mins/60;
+}
+
+function countConflicts(studentId){
+  let c=0;
+  for (const slot of Object.values(state.schedule)){
+    if (!slot.assignees.includes(studentId)) continue;
+    const errs = validateAssignment(studentId, slot);
+    c += errs.length?1:0;
+  }
+  return c;
+}
+
+function validateAssignment(studentId, slot){
+  const st = state.students.find(s=>s.id===studentId);
+  const errs = [];
+  
+  // Check for overlapping shifts (main conflict type)
+  Object.values(state.schedule).forEach(existingShift => {
+    if (existingShift.assignees.includes(studentId) && 
+        existingShift.date === slot.date &&
+        !(existingShift === slot)) { // Don't conflict with the same shift
+      
+      const existingStart = parseTimeStr(existingShift.start);
+      const existingEnd = parseTimeStr(existingShift.end);
+      const newStart = parseTimeStr(slot.start);
+      const newEnd = parseTimeStr(slot.end);
+      
+      // Check if shifts overlap
+      if (newStart < existingEnd && newEnd > existingStart) {
+        errs.push(`Overlaps with ${existingShift.start}-${existingShift.end}`);
+      }
+    }
+  });
+  
+  // PROPER RULE: Per-student test guard using student's unavailable_dates entries on that date
+  // If the student's availability lists a test/unavailability window on this date,
+  // block shifts that end before the test begins, and those that start within 1h after the test ends.
+  // NOTE: During assessment periods, this is handled in isStudentAvailable() to avoid duplication
+  const isAssessmentDay = isAssessmentPeriod(slot.date);
+  if (!isAssessmentDay) {
+    const perStudentBlocks = (st?.availability?.unavailable_dates||[]).filter(u=> u.date === slot.date);
+    if (perStudentBlocks.length){
+      const slotStart = parseTimeStr(slot.start);
+      const slotEnd = parseTimeStr(slot.end);
+      for (const u of perStudentBlocks){
+        const testStart = parseTimeStr(u.start||'00:00');
+        const testEnd = parseTimeStr(u.end||'00:00');
+        if (slotEnd <= testStart){ errs.push('Before student test'); break; }
+        if (slotStart < (testEnd + 60)){ errs.push('Within 1h after student test'); break; }
+      }
+    }
+  }
+  
+  return errs;
+}
+
+function onMonthChange(delta){
+  let y = state.year, m = state.month + delta;
+  if (m<0){ m=11; y--; }
+  if (m>11){ m=0; y++; }
+  state.year=y; state.month=m;
+  renderControls();
+  renderCalendarSkeleton();
+}
+
+/* ===========================
+   Event bindings
+=========================== */
+function init(){
+  // default year/month
+  state.year = new Date().getFullYear();
+  state.month = new Date().getMonth();
+  renderControls();
+  renderCalendarSkeleton();
+  defaultTemplatesIfEmpty();
+  updateTemplateRequirements();
+  updateTestRequiredMax();
+  
+  // Initialize assessment periods
+  renderAssessmentPeriodsList();
+  
+  // Test if import button exists
+  const importBtn = document.getElementById('importCsvBtn');
+  if (importBtn) {
+    log('Import CSV button found and ready');
+  } else {
+    log('ERROR: Import CSV button not found!');
+  }
+
+  document.getElementById('loadSampleBtn').onclick = loadSample;
+  // Mirror header action buttons to existing handlers
+  const hls = document.getElementById('hdrLoadSampleBtn'); if (hls) hls.onclick = loadSample;
+  const hrn = document.getElementById('hdrRunBtn'); if (hrn) hrn.onclick = runSchedule;
+  const hrb = document.getElementById('hdrRebalanceBtn'); if (hrb) hrb.onclick = ()=>{ rebalance(); renderCalendar(); };
+  const hvb = document.getElementById('hdrValidateBtn'); if (hvb) hvb.onclick = validateSchedule;
+  const htv = document.getElementById('hdrToggleViewBtn'); if (htv) htv.onclick = toggleThreeMonthView;
+  const addBH = document.getElementById('addBatchHolidayBtn'); if (addBH) addBH.onclick = addBatchHoliday;
+  const hec = document.getElementById('hdrExportCsvBtn'); if (hec) hec.onclick = exportCSV;
+  const hei = document.getElementById('hdrExportIcsBtn'); if (hei) hei.onclick = exportICSPerStudent;
+  const hpb = document.getElementById('hdrPrintBtn'); if (hpb) hpb.onclick = ()=> window.print();
+  const hsave = document.getElementById('hdrSaveBtn'); if (hsave) hsave.onclick = saveScheduleState;
+  const hload = document.getElementById('hdrLoadBtn'); if (hload) hload.onclick = loadScheduleState;
+  const hclear = document.getElementById('hdrClearBtn'); if (hclear) hclear.onclick = clearScheduleState;
+  const hadmin = document.getElementById('hdrAdminModeBtn'); if (hadmin) hadmin.onclick = toggleAdminMode;
+  const fillBtn = document.getElementById('fillOpenCloseBtn'); if (fillBtn) fillBtn.onclick = fillOpenClose;
+  const monthlyBtn = document.getElementById('applyMonthlyTargetBtn'); if (monthlyBtn) monthlyBtn.onclick = applyMonthlyTargetToAll;
+  document.getElementById('importCsvBtn').onclick = async ()=>{
+    log('Import CSV button clicked!');
+    const f = document.getElementById('csvFile').files[0];
+    if (!f) { log('No file selected'); return alert('Choose a CSV file first.'); }
+    log(`Importing CSV file: ${f.name}`);
+    const reader = new FileReader();
+    reader.onload = async ()=> {
+      const text = reader.result;
+      log(`CSV file loaded, size: ${text.length} characters`);
+      log('First 500 characters of CSV:');
+      log(text.substring(0, 500));
+      // Use inline parser to avoid CORS issues from file://
+      try{
+        parseCSV(text);
+      }catch(e){
+        console.error(e);
+        alert('CSV import failed. Please check the file format.');
+      }
+    };
+    reader.readAsText(f);
+  };
+
+  // NEW: Assessment period event listeners
+  document.getElementById('addAssessmentPeriodBtn').onclick = addAssessmentPeriod;
+  // toggleViewBtn removed - functionality moved to header button
+
+  // Standard event listeners
+  document.getElementById('year').onchange = (e)=>{ state.year = Number(e.target.value||state.year); renderCalendarSkeleton(); };
+  document.getElementById('month').onchange = (e)=>{ state.month = Number(e.target.value||state.month); renderCalendarSkeleton(); };
+  document.getElementById('granularity').onchange = (e)=>{ state.granularity = Number(e.target.value||60); };
+  document.getElementById('testWeekMode').onchange = (e)=>{ state.testWeekMode = e.target.value; updateTemplateRequirements(); updateTestRequiredMax(); };
+
+  // addStudentBtn removed - functionality moved to CSV import
+  document.getElementById('addSpecialBtn').onclick = addSpecialHours;
+  document.getElementById('addTestShiftBtn').onclick = addTestShift;
+  document.getElementById('suggestEarlyOpeningBtn').onclick = suggestEarlyOpeningForLargeTests;
+  document.getElementById('updateOpHoursBtn').onclick = updateOperationalHours;
+  // Removed duplicate buttons - functionality moved to header buttons
+  document.getElementById('prevMonthBtn').onclick = ()=>{ onMonthChange(-1); };
+  document.getElementById('nextMonthBtn').onclick = ()=>{ onMonthChange(1); };
+  const wfSel = document.getElementById('weekFilter'); if (wfSel) wfSel.onchange = ()=> renderCalendar();
+  const candChk = document.getElementById('showCandidatesChk'); if (candChk) candChk.onchange = ()=> renderCalendar();
+  const dlTrace = document.getElementById('downloadTraceBtn'); if (dlTrace) dlTrace.onclick = ()=>{
+    const blob = new Blob([state.logs.join('\n')], {type:'text/plain;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'algorithm-trace.txt'; document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  // Keyboard shortcuts (all require Ctrl+)
+  window.addEventListener('keydown', (e)=>{
+    if (e.ctrlKey) {
+      if (e.key.toLowerCase()==='l') { e.preventDefault(); loadSample(); }
+      if (e.key.toLowerCase()==='r') { e.preventDefault(); runSchedule(); }
+      if (e.key.toLowerCase()==='p') { e.preventDefault(); window.print(); }
+      if (e.key.toLowerCase()==='s') { e.preventDefault(); saveState(); }
+      if (e.key.toLowerCase()==='o') { e.preventDefault(); loadState(); }
+      if (e.key.toLowerCase()==='e') { e.preventDefault(); exportCSV(); }
+      if (e.key.toLowerCase()==='i') { e.preventDefault(); exportICSPerStudent(); }
+      if (e.key.toLowerCase()==='v') { e.preventDefault(); validateSchedule(); }
+      if (e.key.toLowerCase()==='b') { e.preventDefault(); rebalance(); renderCalendar(); }
+      if (e.key.toLowerCase()==='t') { e.preventDefault(); toggleThreeMonthView(); }
+    }
+    // Arrow keys for navigation (no Ctrl required)
+    if (e.key==='ArrowLeft') onMonthChange(-1);
+    if (e.key==='ArrowRight') onMonthChange(1);
+    if (e.key==='Escape') closeStudentSelectionModal();
+  });
+  
+  // Close modal when clicking outside
+  document.getElementById('studentSelectionModal').addEventListener('click', (e) => {
+    if (e.target.id === 'studentSelectionModal') {
+      closeStudentSelectionModal();
+    }
+  });
+  // Close swap modal when clicking outside
+  document.getElementById('swapModal').addEventListener('click', (e)=>{
+    if (e.target.id === 'swapModal') closeSwapModal();
+  });
+}
+
+// Placeholder functions for now
+function runSchedule(){
+  log('Run Schedule clicked - building shifts for the entire selected month from templates');
+
+  // If in 3-month view, generate schedules for all three months
+  if (state.threeMonthView) {
+    log('3-Month view is active - generating schedules for all three months');
+    generateThreeMonthSchedules();
+    renderCalendar();
+    return;
+  }
+
+  // Clear existing schedule
+  state.schedule = {};
+
+  const year = state.year;
+  const month = state.month;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Ensure templates exist
+  defaultTemplatesIfEmpty();
+
+  for (let day = 1; day <= daysInMonth; day++){
+    const dateStr = dateISO(year, month, day);
+    if (!isOperationalDay(dateStr)) continue;
+    const op = getOperationalHours(dateStr);
+    const opStart = parseTimeStr(op.start);
+    const opEnd = parseTimeStr(op.end);
+
+    // Template-based hourly slots within operational hours
+    for (const t of state.templates){
+      const ts = parseTimeStr(t.start);
+      const te = parseTimeStr(t.end);
+      if (ts < opStart || te > opEnd) continue; // outside operational day
+      const key = `${dateStr} ${t.start}`;
+      state.schedule[key] = {
+        date: dateStr,
+        start: t.start,
+        end: t.end,
+        required: t.required || 1,
+        assignees: [],
+        status: 'pending',
+        isOpening: !!t.isOpening,
+        isClosing: !!t.isClosing
+      };
+    }
+
+    // Apply explicit test shifts for this date by increasing capacity of overlapping slots.
+    // Find all shifts that overlap with the test time range and update their capacity.
+    const tests = state.testShifts.filter(ts => ts.date === dateStr);
+    for (const test of tests){
+      let foundOverlapping = false;
+      
+      // Find all existing shifts that overlap with the test time range
+      for (const [shiftKey, shift] of Object.entries(state.schedule)) {
+        if (shift.date === dateStr) {
+          // Check if this shift overlaps with the test time range
+          const shiftStart = parseTimeStr(shift.start);
+          const shiftEnd = parseTimeStr(shift.end);
+          const testStart = parseTimeStr(test.start);
+          const testEnd = parseTimeStr(test.end);
+          
+          // Check for overlap: shift overlaps if it starts before test ends and ends after test starts
+          if (shiftStart < testEnd && shiftEnd > testStart) {
+            foundOverlapping = true;
+            
+            // Increase capacity on the overlapping shift
+            const newReq = Math.max(shift.required||1, test.required||1);
+            shift.required = newReq;
+            // Allow higher max capacity if provided
+            const capHint = Math.max(newReq, Math.min(test.maxCapacity||newReq, state.students.length||newReq));
+            shift.maxCapacity = capHint;
+            shift.testShiftName = test.name || shift.testShiftName;
+            
+            log(`  → Updated overlapping shift ${shift.start}-${shift.end} capacity to ${newReq}/${capHint} for test "${test.name}"`);
+          }
+        }
+      }
+      
+      // If no overlapping shifts found, create a dedicated slot for this test time
+      if (!foundOverlapping) {
+        const k = `${dateStr} ${test.start}`;
+        state.schedule[k] = {
+          date: dateStr,
+          start: test.start,
+          end: test.end,
+          required: test.required || 1,
+          assignees: [],
+          status: 'pending',
+          testShiftName: test.name,
+          maxCapacity: Math.min(test.maxCapacity||test.required||1, state.students.length||1)
+        };
+        log(`  → Created dedicated test shift ${test.start}-${test.end} for "${test.name}"`);
+      }
+    }
+  }
+
+  // Initialize fairness tracking
+  state.fairness = {};
+  state.students.forEach(student => {
+    state.fairness[student.id] = { openings: 0, closings: 0 };
+  });
+
+  // Run the scheduling algorithm to populate shifts
+  log('Running scheduling algorithm...');
+  runSchedulingAlgorithm();
+
+  renderCalendar();
+  log('Month generated and scheduled. Students assigned to shifts based on availability and constraints.');
+  showFeedback(`Schedule generated for ${new Date(state.year, state.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
+}
+
+function runSchedulingAlgorithm(){
+  log('Building availability map...');
+  
+  // Build availability map for all students
+  const availabilityMap = {};
+  state.students.forEach(student => {
+    availabilityMap[student.id] = buildStudentAvailability(student);
+  });
+  
+  log('Building shifts...');
+  
+  // Get all shifts sorted by difficulty (hardest first)
+  const shifts = Object.entries(state.schedule)
+    .map(([key, shift]) => ({ key, ...shift }))
+    .sort((a, b) => {
+      // Prioritize by: opening/closing shifts, then by required count, then by date
+      const aPriority = (a.isOpening || a.isClosing ? 0 : 1);
+      const bPriority = (b.isOpening || b.isClosing ? 0 : 1);
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      if (a.required !== b.required) return b.required - a.required;
+      return a.date.localeCompare(b.date);
+    });
+  
+  log(`Computing candidates for ${shifts.length} shifts...`);
+  
+  // Compute candidates for each shift
+  let totalCandidates = 0;
+  let shiftsWithCandidates = 0;
+  shifts.forEach(shift => {
+    shift.candidates = state.students.filter(student => {
+      return canAssignStudentToShift(student.id, shift) && 
+             isStudentAvailable(student.id, shift.date, shift.start, shift.end, availabilityMap[student.id]);
+    });
+    totalCandidates += shift.candidates.length;
+    if (shift.candidates.length > 0) shiftsWithCandidates++;
+  });
+  log(`Found ${totalCandidates} total candidates across ${shiftsWithCandidates} shifts with candidates`);
+  
+  log('Assigning shifts (hardest first)...');
+  
+  // Assign shifts using greedy algorithm
+  let assignedCount = 0;
+  shifts.forEach(shift => {
+    const needed = shift.required - shift.assignees.length;
+    if (needed <= 0) return;
+    
+    // Sort candidates by priority: consistency first, then fairness
+    const sortedCandidates = shift.candidates
+      .filter(candidate => !shift.assignees.includes(candidate.id))
+      .sort((a, b) => {
+        // 1) Weekly consistency: prefer students who already work same weekday at same time
+        const dayKey = new Date(`${shift.date}T00:00:00`).getDay();
+        const aConsistency = getConsistencyScore(a.id, dayKey, shift.start);
+        const bConsistency = getConsistencyScore(b.id, dayKey, shift.start);
+        if (aConsistency !== bConsistency) return bConsistency - aConsistency;
+        
+        // 2) Weekly remaining hours (ascending: those with fewer left go first)
+        const aWeeklyRem = getWeeklyRemainingHours(a.id, shift.date);
+        const bWeeklyRem = getWeeklyRemainingHours(b.id, shift.date);
+        if (aWeeklyRem !== bWeeklyRem) return aWeeklyRem - bWeeklyRem;
+        
+        // 3) Total monthly assigned hours (ascending)
+        const aHours = getTotalAssignedHours(a.id) / 60; // Convert minutes to hours
+        const bHours = getTotalAssignedHours(b.id) / 60; // Convert minutes to hours
+        if (aHours !== bHours) return aHours - bHours;
+        
+        // 4) Fairness balance (openings/closings)
+        const aFairness = getFairnessScore(a.id);
+        const bFairness = getFairnessScore(b.id);
+        if (aFairness !== bFairness) return aFairness - bFairness;
+        
+        // 5) Deterministic tie-breaker
+        return a.id.localeCompare(b.id);
+      });
+    
+    // Assign up to needed count
+    let slotsToFill = needed;
+    const shiftMinutes = parseTimeStr(shift.end) - parseTimeStr(shift.start);
+    for (let i = 0; i < sortedCandidates.length && slotsToFill > 0; i++) {
+      const student = sortedCandidates[i];
+      // Re-check caps at assignment time to avoid stale candidate lists
+      const weeklyHours = getWeeklyAssignedHours(student.id, shift.date);
+      const addHours = shiftMinutes / 60;
+      const studentRec = state.students.find(s => s.id === student.id);
+      if (studentRec && studentRec.weekly_max_hours && weeklyHours + addHours > studentRec.weekly_max_hours) {
+        continue;
+      }
+      const monthHours = getTotalMonthlyHours(student.id, shift.date);
+      if (studentRec && studentRec.contracted_monthly_hours && monthHours + addHours > studentRec.contracted_monthly_hours) {
+        continue;
+      }
+      // Extra safety: ensure no conflicts just before assignment
+      if (validateAssignment(student.id, shift).length > 0) continue;
+
+      shift.assignees.push(student.id);
+      assignedCount++;
+      slotsToFill--;
+      
+      // Update fairness tracking
+      if (shift.isOpening) state.fairness[student.id].openings++;
+      if (shift.isClosing) state.fairness[student.id].closings++;
+      
+      const consistencyScore = getConsistencyScore(student.id, new Date(`${shift.date}T00:00:00`).getDay(), shift.start);
+      const consistencyNote = consistencyScore > 0 ? ` [consistency: ${consistencyScore}]` : '';
+      log(`Assign ${student.name} → ${shift.date} ${shift.start}-${shift.end} (${shift.assignees.length}/${shift.required})${consistencyNote}`);
+    }
+  });
+  
+  log(`Scheduling complete: ${assignedCount} assignments made across ${shifts.length} shifts`);
+  
+  // Log consistency statistics
+  let totalConsistencyMatches = 0;
+  Object.values(state.schedule).forEach(shift => {
+    shift.assignees.forEach(studentId => {
+      const dayKey = new Date(`${shift.date}T00:00:00`).getDay();
+      const consistency = getConsistencyScore(studentId, dayKey, shift.start);
+      if (consistency > 0) totalConsistencyMatches++;
+    });
+  });
+  log(`Consistency: ${totalConsistencyMatches} assignments maintain weekly patterns`);
+}
+
+function buildStudentAvailability(student) {
+  const availability = {};
+  
+  // Parse weekly availability
+  if (student.availability && student.availability.weekly) {
+    student.availability.weekly.forEach(block => {
+      const dayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
+      const dayNum = dayMap[block.day];
+      if (dayNum !== undefined) {
+        if (!availability[dayNum]) availability[dayNum] = [];
+        availability[dayNum].push({
+          start: parseTimeStr(block.start),
+          end: parseTimeStr(block.end)
+        });
+      }
+    });
+  }
+  
+  return availability;
+}
+
+function isStudentAvailable(studentId, dateStr, startTime, endTime, availability) {
+  const date = new Date(dateStr + 'T00:00:00');
+  const dayOfWeek = date.getDay();
+  const start = parseTimeStr(startTime);
+  const end = parseTimeStr(endTime);
+  
+  // ASSESSMENT PERIOD LOGIC: During assessment periods, disregard regular availability
+  const isAssessmentDay = isAssessmentPeriod(dateStr);
+  
+  if (isAssessmentDay) {
+    // During assessment periods, only apply test-specific rules
+    // Check if student has any test/unavailability on this date
+    const student = state.students.find(s => s.id === studentId);
+    const perStudentBlocks = (student?.availability?.unavailable_dates || []).filter(u => u.date === dateStr);
+    
+    if (perStudentBlocks.length) {
+      // Student has tests/unavailability on this date - apply test rules
+      for (const u of perStudentBlocks) {
+        const testStart = parseTimeStr(u.start || '00:00');
+        const testEnd = parseTimeStr(u.end || '00:00');
+        
+        // Block shifts that end before test begins
+        if (end <= testStart) {
+          log(`🔒 Assessment period: ${student.name} blocked before test (${u.start}) on ${dateStr}`);
+          return false; // "Before student test"
+        }
+        // Block shifts that start within 1h after test ends
+        if (start < (testEnd + 60)) {
+          log(`🔒 Assessment period: ${student.name} blocked within 1h after test (${u.end}) on ${dateStr}`);
+          return false; // "Within 1h after student test"
+        }
+      }
+    }
+    
+    // If no test conflicts, student is available during assessment periods
+    log(`✅ Assessment period: ${student.name} available on ${dateStr} (no test conflicts)`);
+    return true;
+  }
+  
+  // NORMAL PERIOD LOGIC: Use regular availability matrix
+  // Check if student has availability on this day
+  if (!availability[dayOfWeek]) return false;
+  
+  // Check if the shift time overlaps with any available block
+  return availability[dayOfWeek].some(block => {
+    return start < block.end && end > block.start;
+  });
+}
+
+function getTotalAssignedHours(studentId) {
+  let totalMinutes = 0;
+  Object.values(state.schedule).forEach(shift => {
+    if (shift.assignees.includes(studentId)) {
+      totalMinutes += parseTimeStr(shift.end) - parseTimeStr(shift.start);
+    }
+  });
+  return totalMinutes;
+}
+
+function getConsistencyScore(studentId, dayOfWeek, startTime) {
+  // Count how many times this student already works the same weekday at the same start time
+  let consistencyCount = 0;
+  Object.values(state.schedule).forEach(shift => {
+    if (shift.assignees.includes(studentId)) {
+      const shiftDay = new Date(`${shift.date}T00:00:00`).getDay();
+      if (shiftDay === dayOfWeek && shift.start === startTime) {
+        consistencyCount++;
+      }
+    }
+  });
+  return consistencyCount;
+}
+
+function getWeeklyRemainingHours(studentId, dateStr) {
+  const student = state.students.find(s => s.id === studentId);
+  if (!student) return 0;
+  
+  const weeklyHours = getWeeklyAssignedHours(studentId, dateStr);
+  const maxWeekly = student.weekly_max_hours || 18;
+  return Math.max(0, maxWeekly - weeklyHours);
+}
+
+function getFairnessScore(studentId) {
+  const fairness = state.fairness[studentId] || { openings: 0, closings: 0 };
+  // Lower score = more fair (fewer openings/closings)
+  return fairness.openings + fairness.closings;
+}
+
+function getConsecutiveHours(studentId, dateStr, startTime, endTime) {
+  // Calculate total consecutive hours for a student on a given date
+  const dayShifts = Object.values(state.schedule)
+    .filter(s => s.date === dateStr && s.assignees.includes(studentId))
+    .map(s => ({ start: parseTimeStr(s.start), end: parseTimeStr(s.end) }))
+    .sort((a, b) => a.start - b.start);
+
+  // Add the potential new shift
+  dayShifts.push({ start: parseTimeStr(startTime), end: parseTimeStr(endTime) });
+  dayShifts.sort((a, b) => a.start - b.start);
+
+  // Find the longest consecutive block
+  let maxConsecutive = 0;
+  let currentBlock = 0;
+  let lastEnd = -1;
+
+  for (const shift of dayShifts) {
+    if (shift.start <= lastEnd + 60) { // 1 hour gap or less = consecutive
+      currentBlock += (shift.end - shift.start) / 60;
+    } else {
+      maxConsecutive = Math.max(maxConsecutive, currentBlock);
+      currentBlock = (shift.end - shift.start) / 60;
+    }
+    lastEnd = shift.end;
+  }
+  maxConsecutive = Math.max(maxConsecutive, currentBlock);
+
+  return maxConsecutive;
+}
+
+function applyMonthlyTargetToAll(){
+  const inp = document.getElementById('defaultMonthlyTarget');
+  if (!inp) return;
+  let val = Number(inp.value||0);
+  if (!Number.isFinite(val) || val < 1){ alert('Enter a valid number of hours'); return; }
+  if (val > 72) val = 72; // cap at 72
+  const applied = state.students.length;
+  state.students = state.students.map(st=> ({...st, contracted_monthly_hours: val}));
+  renderSummary();
+  log(`Applied monthly target ${val}h to ${applied} students (cap 72h).`);
+  showFeedback(`Applied ${val}h monthly target to ${applied} students`);
+}
+
+function saveScheduleState(){
+  const scheduleData = {
+    version: '2.0',
+    timestamp: new Date().toISOString(),
+    month: state.month,
+    year: state.year,
+    students: state.students,
+    schedule: state.schedule,
+    templates: state.templates,
+    operationalHours: state.operationalHours,
+    testShifts: state.testShifts,
+    assessmentPeriods: state.assessmentPeriods,
+    fairness: state.fairness,
+    threeMonthView: state.threeMonthView,
+    testWeekMode: state.testWeekMode,
+    granularity: state.granularity
+  };
+  
+  const blob = new Blob([JSON.stringify(scheduleData, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `schedule_${state.year}_${String(state.month + 1).padStart(2, '0')}_${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showFeedback(`Schedule saved for ${new Date(state.year, state.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}`);
+  log(`Schedule state saved: ${a.download}`);
+}
+
+function loadScheduleState(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        // Validate the loaded data
+        if (!data.version || !data.students || !data.schedule) {
+          throw new Error('Invalid schedule file format');
+        }
+        
+        // Confirmation dialog
+        const monthName = new Date(data.year, data.month).toLocaleDateString('en-US', {month: 'long', year: 'numeric'});
+        const confirmMsg = `Load schedule for ${monthName}?\n\nThis will replace your current work.\n\nStudents: ${data.students.length}\nShifts: ${Object.keys(data.schedule).length}`;
+        
+        if (!confirm(confirmMsg)) {
+          showFeedback('Load cancelled');
+          return;
+        }
+        
+        // Restore state
+        state.month = data.month;
+        state.year = data.year;
+        state.students = data.students || [];
+        state.schedule = data.schedule || {};
+        state.templates = data.templates || [];
+        state.operationalHours = data.operationalHours || {specialHours: [], batchHolidays: []};
+        state.testShifts = data.testShifts || [];
+        state.assessmentPeriods = data.assessmentPeriods || [];
+        state.fairness = data.fairness || {};
+        state.threeMonthView = data.threeMonthView || false;
+        state.testWeekMode = data.testWeekMode || 'normal';
+        state.granularity = data.granularity || 60;
+        
+        // Update UI
+        renderControls();
+        renderCalendar();
+        renderSummary();
+        
+        showFeedback(`Schedule loaded for ${monthName} (${data.students.length} students, ${Object.keys(data.schedule).length} shifts)`);
+        log(`Schedule state loaded from: ${file.name}`);
+        
+      } catch (error) {
+        console.error('Error loading schedule:', error);
+        alert('Error loading schedule file: ' + error.message);
+        showFeedback('Failed to load schedule');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function clearScheduleState(){
+  if (!confirm('Clear all schedule data?\n\nThis will remove all students, shifts, and settings.\n\nThis action cannot be undone.')) {
+    showFeedback('Clear cancelled');
+    return;
+  }
+
+  // Reset to initial state
+  state.students = [];
+  state.schedule = {};
+  state.templates = [];
+  state.operationalHours = {specialHours: [], batchHolidays: []};
+  state.testShifts = [];
+  state.assessmentPeriods = [];
+  state.fairness = {};
+  state.threeMonthView = false;
+  state.testWeekMode = 'normal';
+  state.granularity = 60;
+
+  // Update UI
+  renderControls();
+  renderCalendar();
+  renderSummary();
+
+  showFeedback('Schedule cleared - ready for new data');
+  log('Schedule state cleared');
+}
+
+// Admin Mode Functions
+function isAdminMode() {
+  return localStorage.getItem('adminMode') === 'true';
+}
+
+function toggleAdminMode() {
+  const currentMode = isAdminMode();
+  const newMode = !currentMode;
+  
+  localStorage.setItem('adminMode', newMode.toString());
+  
+  const adminBtn = document.getElementById('hdrAdminModeBtn');
+  
+  if (newMode) {
+    adminBtn.classList.add('active');
+    adminBtn.textContent = 'Disable Admin Mode';
+    showFeedback('🔧 Admin Mode ENABLED - All restrictions bypassed', 'warning');
+    log('Admin Mode ENABLED - All drag-and-drop restrictions bypassed');
+  } else {
+    adminBtn.classList.remove('active');
+    adminBtn.textContent = 'Enable Admin Mode';
+    showFeedback('Admin Mode disabled - Normal restrictions apply', 'info');
+    log('Admin Mode disabled - Normal restrictions apply');
+  }
+}
+
+function showFeedback(message, type = 'success'){
+  // Create or get feedback container
+  let container = document.getElementById('feedbackContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'feedbackContainer';
+    container.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 10000;
+      pointer-events: none;
+    `;
+    document.body.appendChild(container);
+  }
+  
+  // Create feedback message
+  const feedback = document.createElement('div');
+  feedback.style.cssText = `
+    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    color: white; padding: 12px 16px; border-radius: 8px;
+    margin-bottom: 8px; font-size: 14px; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transform: translateX(100%); opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 300px; word-wrap: break-word;
+  `;
+  feedback.textContent = message;
+  
+  container.appendChild(feedback);
+  
+  // Animate in
+  setTimeout(() => {
+    feedback.style.transform = 'translateX(0)';
+    feedback.style.opacity = '1';
+  }, 10);
+  
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    feedback.style.transform = 'translateX(100%)';
+    feedback.style.opacity = '0';
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.parentNode.removeChild(feedback);
+      }
+    }, 300);
+  }, 3000);
+}
+
+function rebalance(){
+  log('Rebalance: equalizing hours across students while respecting caps...');
+
+  const monthYear = {year: state.year, month: state.month};
+  const shiftHours = (s)=> (parseTimeStr(s.end)-parseTimeStr(s.start))/60;
+
+  // Build list of shifts for current month only, ordered by replacement priority
+  const shiftList = Object.entries(state.schedule)
+    .map(([key, s])=>({key, s}))
+    .filter(({s})=>{ const d=new Date(s.date+'T00:00:00'); return d.getFullYear()===monthYear.year && d.getMonth()===monthYear.month; })
+    .sort((a,b)=>{
+      const ap = (a.s.isOpening||a.s.isClosing)?1:0;
+      const bp = (b.s.isOpening||b.s.isClosing)?1:0;
+      if (ap !== bp) return ap - bp; // prefer swapping out non-open/close first
+      return b.s.date.localeCompare(a.s.date); // later dates first
+    });
+
+  const getH = (sid)=> getTotalMonthlyHours(sid); // uses state.month/state.year
+  const capOf = (sid)=> state.students.find(x=>x.id===sid)?.contracted_monthly_hours || Infinity;
+
+  // Iteratively reduce max-min hour gap via swaps from high to low
+  let changed = true;
+  let iterations = 0;
+  const targetGap = 0.5; // aim to equalize within half an hour
+  while (changed && iterations < 200){
+    iterations++;
+    changed = false;
+
+    // Snapshot hours and sort students
+    const stats = state.students.map(st=>({id:st.id, name:st.name, h:getH(st.id), cap:capOf(st.id)}));
+    stats.sort((a,b)=> a.h - b.h);
+    const lowList = stats.filter(s=> s.h < s.cap);
+    const highList = [...stats].reverse();
+
+    // Target: reduce gap until within target threshold
+    const currentGap = highList[0].h - lowList[0].h;
+    if (currentGap <= targetGap) break;
+
+    // Try to move one shift from a high-hour student to a low-hour student
+    let moved = false;
+    for (const hi of highList){
+      if (moved) break;
+      for (const lo of lowList){
+        if (moved) break;
+        if (hi.id === lo.id) continue;
+        if (hi.h <= lo.h + 0.5) continue; // already close enough
+        
+        const trySwap = (filterFn)=>{
+          for (const {key, s} of shiftList){
+            if (!s.assignees || !s.assignees.includes(hi.id)) continue;
+            if (s.assignees.includes(lo.id)) continue;
+            if (filterFn && !filterFn(s)) continue;
+
+            const addH = shiftHours(s);
+            // Check lo's weekly and monthly caps if they take this shift
+            const loWeek = getWeeklyAssignedHours(lo.id, s.date);
+            const loRec = state.students.find(x=>x.id===lo.id);
+            if (loRec && loRec.weekly_max_hours && loWeek + addH > loRec.weekly_max_hours) continue;
+            if (lo.h + addH > capOf(lo.id)) continue;
+
+            // Prefer swaps that keep weekly consistency for lo
+            const dayKey = new Date(`${s.date}T00:00:00`).getDay();
+            const consistencyGain = getConsistencyScore(lo.id, dayKey, s.start);
+
+            // Check consecutive hours limit (5 hours max)
+            const consecutiveHours = getConsecutiveHours(lo.id, s.date, s.start, s.end);
+            if (consecutiveHours > 5) continue;
+
+            // Temporarily remove hi to check conflicts for lo
+            s.assignees = s.assignees.filter(id=>id!==hi.id);
+            const ok = canAssignStudentToShift(lo.id, s) && validateAssignment(lo.id, s).length===0;
+            if (ok){
+              s.assignees.push(lo.id);
+              // update fairness bookkeeping
+              if (s.isOpening){
+                if (state.fairness[hi.id]) state.fairness[hi.id].openings = Math.max(0, state.fairness[hi.id].openings-1);
+                state.fairness[lo.id].openings = (state.fairness[lo.id].openings||0)+1;
+              }
+              if (s.isClosing){
+                if (state.fairness[hi.id]) state.fairness[hi.id].closings = Math.max(0, state.fairness[hi.id].closings-1);
+                state.fairness[lo.id].closings = (state.fairness[lo.id].closings||0)+1;
+              }
+              moved = true; changed = true;
+              const note = consistencyGain>0 ? ' [consistency]' : '';
+              log(`Rebalance swap: ${hi.name} → ${lo.name} on ${s.date} ${s.start}-${s.end}${note}`);
+              return true;
+            } else {
+              // restore hi if swap not possible
+              if (!s.assignees.includes(hi.id)) s.assignees.push(hi.id);
+            }
+          }
+          return false;
+        };
+
+        // Prefer non-opening/closing and consistency-preserving swaps, then relax
+        moved = trySwap(s=> !(s.isOpening||s.isClosing) && getConsistencyScore(lo.id, new Date(`${s.date}T00:00:00`).getDay(), s.start) > 0);
+        if (!moved) moved = trySwap(s=> !(s.isOpening||s.isClosing));
+        if (!moved) moved = trySwap(s=> (s.isOpening||s.isClosing) && getConsistencyScore(lo.id, new Date(`${s.date}T00:00:00`).getDay(), s.start) > 0);
+        if (!moved) moved = trySwap();
+      }
+    }
+    if (!moved) break; // no further progress
+  }
+
+  renderCalendar();
+  log('Rebalance complete: hours equalized as far as constraints allow.');
+  showFeedback('Schedule rebalanced - hours equalized');
+}
+
+function fillOpenClose(){
+  // Try to fill opening and closing shifts first with any available students within constraints
+  const keys = Object.keys(state.schedule).sort();
+  let assigns = 0;
+  for (const k of keys){
+    const s = state.schedule[k];
+    if (!s) continue;
+    if (!(s.isOpening || s.isClosing)) continue;
+    const cap = Math.min(2, state.students.length);
+    while ((s.assignees?.length||0) < Math.min(cap, s.required||1)){
+      const candidates = state.students.filter(st=> !s.assignees.includes(st.id) && validateAssignment(st.id, s).length===0);
+      if (!candidates.length) break;
+      s.assignees.push(candidates[0].id);
+      assigns++;
+    }
+  }
+  renderCalendar();
+  log(`Fill openings/closings completed. Assigned ${assigns} slot(s).`);
+  showFeedback(`Filled ${assigns} opening/closing shifts`);
+}
+
+function renderCalendar(){
+  if (state.threeMonthView) {
+    log('Rendering 3-Month Calendar View');
+    renderThreeMonthCalendar();
+  } else {
+    log('Rendering Single Month Calendar View');
+    renderCalendarSkeleton();
+    
+    // Add click handlers to shifts for student selection
+    const dayContainers = document.querySelectorAll('.shifts');
+    const byDate = {};
+    
+    for (const key of Object.keys(state.schedule)){
+      const s = state.schedule[key];
+      byDate[s.date] = byDate[s.date] || [];
+      byDate[s.date].push(s);
+    }
+    
+    for (const dateStr of Object.keys(byDate)){
+      byDate[dateStr].sort((a,b)=> parseTimeStr(a.start)-parseTimeStr(b.start));
+    }
+
+    for (const el of dayContainers){
+      const dateStr = el.getAttribute('data-date');
+      const shifts = byDate[dateStr] || [];
+      
+      for (const s of shifts){
+        const div = document.createElement('div');
+        div.className='shift';
+        if (s.status==='unfillable') div.classList.add('req-bad');
+        if (s.adminOverride) div.classList.add('admin-override');
+        div.setAttribute('data-key', `${s.date} ${s.start}`);
+        
+        // Make shift clickable for student selection
+        div.style.cursor = 'pointer';
+        div.onclick = (e) => {
+          e.stopPropagation();
+          openStudentSelectionModal(`${s.date} ${s.start}`);
+        };
+        
+        const debug = document.getElementById('showCandidatesChk')?.checked;
+        let titleExtra = '';
+        if (debug && s.candidates && s.candidates.length){
+          titleExtra = ` · cand:${s.candidates.length}`;
+        }
+        const shiftTitle = s.testShiftName ? `${s.start}–${s.end} (${s.testShiftName})${titleExtra}` : `${s.start}–${s.end}${titleExtra}`;
+        div.innerHTML = `
+          <div class="shift-title">${shiftTitle}</div>
+          <div class="assignees" data-key="${s.date} ${s.start}"></div>
+          <div class="req">${s.assignees.length}/${s.required}</div>
+        `;
+        
+        const ass = div.querySelector('.assignees');
+        // make droppable
+        ass.ondragover = (e)=>{ 
+          e.preventDefault(); 
+          ass.classList.add('drop-hint');
+          if (isAdminMode()) {
+            ass.classList.add('admin-override-target');
+          }
+        };
+        ass.ondragleave = ()=> {
+          ass.classList.remove('drop-hint');
+          ass.classList.remove('admin-override-target');
+        };
+        ass.ondrop = (e)=>{
+          e.preventDefault();
+          ass.classList.remove('drop-hint');
+          ass.classList.remove('admin-override-target');
+          const studentId = e.dataTransfer.getData('text/plain');
+          const key = ass.getAttribute('data-key');
+          handleDropAssign(studentId, key);
+        };
+        
+        // fill assignees
+        for (const stId of s.assignees){
+          ass.appendChild(renderChip(stId, s, /*draggable*/true));
+        }
+        
+        // add quick remove buttons for assigned chips
+        // fill placeholders if empty
+        if (!s.assignees.length){
+          const ph = document.createElement('div'); 
+          ph.className='small'; 
+          ph.style.color='#64748b'; 
+          ph.textContent='Click to add students';
+          ass.appendChild(ph);
+        }
+        
+        el.appendChild(div);
+      }
+    }
+  }
+  
+  renderSummary();
+}
+
+function renderChip(studentId, slot, draggable=true){
+  const chip = document.createElement('div');
+  chip.className='chip tooltip';
+  
+  // Check if student is available for this shift
+  const st = state.students.find(s=>s.id===studentId);
+  const availability = buildStudentAvailability(st);
+  const isAvailable = isStudentAvailable(studentId, slot.date, slot.start, slot.end, availability);
+  
+  // Lock dragging if student is not available
+  chip.draggable = draggable && isAvailable;
+  
+  // Add visual indicator for locked chips
+  if (!isAvailable) {
+    chip.classList.add('locked');
+    chip.style.opacity = '0.6';
+    chip.style.cursor = 'not-allowed';
+  }
+  
+  // Deterministic color per student
+  const baseColor = st?.color || colorFromString(st?.name || studentId);
+  chip.style.background = baseColor;
+  const avatar = st?.avatar_url ? `<img class="avatar" src="${st.avatar_url}" onerror="this.style.display='none'">` : '';
+  const lockIcon = !isAvailable ? '🔒' : '';
+  chip.innerHTML = `${avatar}${studentName(studentId)}${lockIcon}`;
+  chip.setAttribute('data-tip', chipTooltip(studentId, slot));
+  chip.ondragstart = (e)=>{
+    e.dataTransfer.setData('text/plain', studentId);
+    e.dataTransfer.effectAllowed='move';
+    chip.style.opacity='0.5';
+    // Also include origin slot key
+    e.dataTransfer.setData('text/slot', `${slot.date} ${slot.start}`);
+  };
+  chip.ondragend = ()=> chip.style.opacity='1';
+  // Click to remove from shift
+  chip.onclick = (e)=>{
+    e.stopPropagation();
+    if (!confirm('Remove '+studentName(studentId)+' from this shift?')) return;
+    const key = `${slot.date} ${slot.start}`;
+    const s = state.schedule[key];
+    if (!s) return;
+    s.assignees = s.assignees.filter(id=>id!==studentId);
+    if (s.isOpening) state.fairness[studentId].openings = Math.max(0,(state.fairness[studentId].openings||0)-1);
+    if (s.isClosing) state.fairness[studentId].closings = Math.max(0,(state.fairness[studentId].closings||0)-1);
+    renderCalendar();
+    log(`Removed ${studentName(studentId)} from ${slot.date} ${slot.start}-${slot.end}`);
+  };
+  // Right-click to swap
+  chip.oncontextmenu = (e)=>{
+    e.preventDefault();
+    openSwapModal(`${slot.date} ${slot.start}`, studentId);
+  };
+  // mark conflicts
+  const conflicts = validateAssignment(studentId, slot);
+  if (conflicts.length) chip.classList.add('conflict');
+  return chip;
+}
+
+function studentName(id){ return (state.students.find(s=>s.id===id)||{name:'?' }).name; }
+function studentColor(id){ return (state.students.find(s=>s.id===id)||{color:'#ddd' }).color; }
+
+function chipTooltip(studentId, slot){
+  const st = state.students.find(s=>s.id===studentId);
+  const wk = weekKey(slot.date);
+  
+  // Check availability for this shift
+  const availability = buildStudentAvailability(st);
+  const isAvailable = isStudentAvailable(studentId, slot.date, slot.start, slot.end, availability);
+  
+  return `${st.name}
+Weekly: ${getWeeklyAssignedHours(studentId, slot.date).toFixed(1)}/${st.weekly_max_hours||18}
+Monthly: ${getTotalMonthlyHours(studentId).toFixed(1)}${st.contracted_monthly_hours?('/'+st.contracted_monthly_hours):''}
+Open/Close: ${state.fairness[studentId]?.openings||0}/${state.fairness[studentId]?.closings||0}
+${slot.date} ${slot.start}-${slot.end}
+${!isAvailable ? '🔒 Not available at this time' : '✅ Available'}`;
+}
+
+function handleDropAssign(studentId, targetKey){
+  const target = state.schedule[targetKey];
+  if (!target) return;
+
+  // If dragging from another slot, remove from there
+  const inOther = Object.values(state.schedule).find(s=> s.assignees.includes(studentId));
+  if (inOther && overlap(parseTimeStr(inOther.start),parseTimeStr(inOther.end), parseTimeStr(target.start),parseTimeStr(target.end)) && inOther.date===target.date){
+    inOther.assignees = inOther.assignees.filter(id=>id!==studentId);
+    if (inOther.isOpening) state.fairness[studentId].openings = Math.max(0,state.fairness[studentId].openings-1);
+    if (inOther.isClosing) state.fairness[studentId].closings = Math.max(0,state.fairness[studentId].closings-1);
+  }
+
+  // Check if admin mode is enabled
+  const isAdminOverride = isAdminMode();
+
+  // Validate capacity (unless admin override)
+  if (!isAdminOverride) {
+    const cap = (target.isOpening || target.isClosing) ? 2 : 2;
+    if (target.assignees.length >= cap && !target.assignees.includes(studentId)){
+      alert('Shift is at capacity.');
+      return;
+    }
+  }
+
+  // Validate availability and caps (unless admin override)
+  if (!isAdminOverride) {
+    const conflicts = validateAssignment(studentId, target);
+    if (conflicts.length){
+      alert('Cannot assign: ' + conflicts.join('; '));
+      return;
+    }
+  } else {
+    // Admin override - log the override
+    log(`🔧 ADMIN OVERRIDE: Assigning ${studentName(studentId)} to ${target.date} ${target.start}-${target.end} (restrictions bypassed)`);
+    showFeedback(`🔧 ADMIN OVERRIDE: ${studentName(studentId)} assigned (restrictions bypassed)`, 'warning');
+  }
+
+  if (!target.assignees.includes(studentId)){
+    if (!isAdminOverride && !target.isOpening && !target.isClosing && target.assignees.length>=2){ 
+      alert('Max 2 for this shift.'); 
+      return; 
+    }
+    target.assignees.push(studentId);
+    if (target.isOpening) state.fairness[studentId].openings++;
+    if (target.isClosing) state.fairness[studentId].closings++;
+    
+    // Mark as admin override if applicable
+    if (isAdminOverride) {
+      target.adminOverride = true;
+      target.adminOverrideBy = 'admin';
+      target.adminOverrideAt = new Date().toISOString();
+    }
+  }
+  renderCalendar();
+  log(`Manual assign ${studentName(studentId)} → ${target.date} ${target.start}-${target.end}${isAdminOverride ? ' (ADMIN OVERRIDE)' : ''}`);
+}
+
+/* ===========================
+   NEW: Swap & Debts System
+=========================== */
+let swapContext = { shiftKey: null, fromStudentId: null };
+
+function openSwapModal(shiftKey, fromStudentId){
+  const shift = state.schedule[shiftKey];
+  if (!shift) return;
+  swapContext = { shiftKey, fromStudentId };
+
+  const info = document.getElementById('swapShiftInfo');
+  info.querySelector('.shift-details').innerHTML = `
+    <strong>${shift.date}</strong> ${shift.start}-${shift.end}<br>
+    Replacing: ${studentName(fromStudentId)}
+  `;
+
+  const list = document.getElementById('swapStudentList');
+  list.innerHTML = '';
+
+  state.students.forEach(st=>{
+    if (st.id === fromStudentId) return; // don't list the same person
+    const can = canAssignStudentToShift(st.id, shift);
+    
+    // Debug logging for swap eligibility
+    if (!can) {
+      const availability = buildStudentAvailability(st);
+      const isAvail = isStudentAvailable(st.id, shift.date, shift.start, shift.end, availability);
+      const weeklyHours = getWeeklyAssignedHours(st.id, shift.date);
+      const monthlyHours = getTotalMonthlyHours(st.id);
+      const shiftHours = (parseTimeStr(shift.end) - parseTimeStr(shift.start)) / 60;
+      const conflicts = validateAssignment(st.id, shift);
+      
+      log(`Swap debug for ${st.name}: available=${isAvail}, weekly=${weeklyHours}/${st.weekly_max_hours}, monthly=${monthlyHours}/${st.contracted_monthly_hours}, conflicts=${conflicts.length}`);
+    }
+    
+    const item = document.createElement('div');
+    item.className = `student-item ${can?'available':'unavailable'}`;
+    if (can){
+      item.onclick = ()=> performSwap(st.id);
+    }
+    item.innerHTML = `
+      <div class="student-color" style="background:${st.color}"></div>
+      <div class="student-info">
+        <div class="student-name">${st.name}</div>
+        <div class="student-details">${can? 'Available' : 'Not eligible (conflict/limits)'}</div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  document.getElementById('swapModal').style.display = 'flex';
+}
+
+function closeSwapModal(){
+  document.getElementById('swapModal').style.display = 'none';
+  swapContext = { shiftKey:null, fromStudentId:null };
+}
+
+function performSwap(toStudentId){
+  const { shiftKey, fromStudentId } = swapContext;
+  const shift = state.schedule[shiftKey];
+  if (!shift) return;
+  
+  // Remove from fromStudentId
+  shift.assignees = shift.assignees.filter(id=>id!==fromStudentId);
+  // Add to toStudentId if capacity allows
+  if (!canAssignStudentToShift(toStudentId, shift)){
+    alert('Selected replacement cannot be assigned due to constraints.');
+    return;
+  }
+  shift.assignees.push(toStudentId);
+
+  // Record debt: from owes to one shift
+  state.swapDebts.push({
+    from: fromStudentId,
+    to: toStudentId,
+    shift: shiftKey,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+
+  renderCalendar();
+  renderDebtsPanel();
+  closeSwapModal();
+  log(`Swap: ${studentName(fromStudentId)} → ${studentName(toStudentId)} on ${shiftKey}. Debt recorded.`);
+}
+
+/* ===========================
+   Validation Utilities
+=========================== */
+function validateSchedule(){
+  const issues = [];
+  const perStudentWeekMinutes = {};
+  const perStudentMonthMinutes = {};
+  const getOr = (obj, key, d=0)=> (obj[key]??(obj[key]=d));
+
+  const minsBetween = (s,e)=> parseTimeStr(e) - parseTimeStr(s);
+
+  // Slot-level checks
+  Object.values(state.schedule).forEach(slot=>{
+    const required = slot.required || 1;
+    const maxCap = slot.maxCapacity || required;
+    const count = (slot.assignees||[]).length;
+    if (count > maxCap) issues.push(`Over capacity ${count}/${maxCap} at ${slot.date} ${slot.start}-${slot.end}`);
+    if (slot.isOpening && required < 1) issues.push(`Opening shift must have at least 1 at ${slot.date} ${slot.start}`);
+    if (slot.isClosing && required < 1) issues.push(`Closing shift must have at least 1 at ${slot.date} ${slot.end}`);
+  });
+
+  // Student-level checks
+  const assignmentsByStudent = {};
+  Object.values(state.schedule).forEach(slot=>{
+    (slot.assignees||[]).forEach(sid=>{
+      (assignmentsByStudent[sid]||(assignmentsByStudent[sid]=[])).push(slot);
+    });
+  });
+
+  Object.entries(assignmentsByStudent).forEach(([sid,slots])=>{
+    slots.sort((a,b)=> a.date===b.date ? parseTimeStr(a.start)-parseTimeStr(b.start) : a.date.localeCompare(b.date));
+    let last=null; let consec=0;
+    slots.forEach(slot=>{
+      const mins = minsBetween(slot.start, slot.end);
+      const wk = weekKey(slot.date);
+      getOr(perStudentWeekMinutes, sid+":"+wk);
+      perStudentWeekMinutes[sid+":"+wk]+=mins;
+      getOr(perStudentMonthMinutes, sid);
+      perStudentMonthMinutes[sid]+=mins;
+
+      if (last && last.date===slot.date && parseTimeStr(last.end)===parseTimeStr(slot.start)) consec+=1; else consec=1;
+      if (consec>5) issues.push(`>5 consecutive hours for ${getStudentName(sid)} on ${slot.date}`);
+
+      const tests = (state.perStudentTests&&state.perStudentTests[sid])||[];
+      tests.filter(t=>t.date===slot.date).forEach(t=>{
+        const sS=parseTimeStr(slot.start), sE=parseTimeStr(slot.end);
+        const tS=parseTimeStr(t.start), tE=parseTimeStr(t.end);
+        if (sE>tS && sS<tS) issues.push(`Test guard (before) for ${getStudentName(sid)} on ${slot.date}`);
+        if (sS<(tE+60) && sE>tE) issues.push(`Test guard (+1h) for ${getStudentName(sid)} on ${slot.date}`);
+      });
+
+      last=slot;
+    });
+  });
+
+  // Limits
+  state.students.forEach(st=>{
+    Object.keys(perStudentWeekMinutes).filter(k=>k.startsWith(st.id+":"))
+      .forEach(k=>{
+        const mins=perStudentWeekMinutes[k]||0;
+        const limit=(st.weekly_max_hours||18)*60;
+        if (mins>limit) issues.push(`Weekly limit ${Math.round(mins/60)}h>${st.weekly_max_hours||18}h for ${st.name} in week ${k.split(':')[1]}`);
+      });
+    const m=perStudentMonthMinutes[st.id]||0;
+    if (st.contracted_monthly_hours && m>st.contracted_monthly_hours*60)
+      issues.push(`Monthly contract ${Math.round(m/60)}h>${st.contracted_monthly_hours}h for ${st.name}`);
+  });
+
+  // Under-fill
+  Object.values(state.schedule).forEach(slot=>{
+    const need=(slot.required||1)-(slot.assignees||[]).length;
+    if (need>0) issues.push(`Under-filled ${need} at ${slot.date} ${slot.start}-${slot.end}`);
+  });
+
+  const ok = issues.length===0;
+  console.log('Validation report:', issues);
+  alert(ok? 'All checks passed.' : `${issues.length} issues found. See console for details.`);
+}
+
+function renderDebtsPanel(){
+  const containerId = 'debtsList';
+  let c = document.getElementById(containerId);
+  if (!c) return; // panel may not exist yet
+  c.innerHTML = '';
+  if (!state.swapDebts.length){
+    c.innerHTML = '<div class="small" style="color:#64748b;padding:8px">No outstanding debts</div>';
+    return;
+  }
+  state.swapDebts.forEach((d,idx)=>{
+    const from = studentName(d.from), to = studentName(d.to);
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.marginBottom = '4px';
+    row.style.padding = '6px';
+    row.style.background = '#0b1120';
+    row.style.border = '1px solid #1f2937';
+    row.style.borderRadius = '6px';
+    row.innerHTML = `
+      <div class="tag">${from} owes ${to}</div>
+      <div class="tag">for ${d.shift}</div>
+      <div class="tag">${d.status}</div>
+      <button class="secondary" onclick="markDebtSettled(${idx})" style="margin-left:auto">Mark settled</button>
+    `;
+    c.appendChild(row);
+  });
+}
+
+function markDebtSettled(index){
+  if (!state.swapDebts[index]) return;
+  state.swapDebts[index].status = 'settled';
+  renderDebtsPanel();
+}
+
+function exportCSV(){
+  const rows = [['date','start','end','required','student_id','student_name']];
+  for (const key of Object.keys(state.schedule)){
+    const s = state.schedule[key];
+    if (!s.assignees || !s.assignees.length){
+      rows.push([s.date, s.start, s.end, String(s.required||1), '', '']);
+    } else {
+      for (const id of s.assignees){
+        const st = state.students.find(x=>x.id===id) || {name:''};
+        rows.push([s.date, s.start, s.end, String(s.required||1), id, st.name]);
+      }
+    }
+  }
+  const csv = rows.map(r=> r.map(v=> /[",\n]/.test(v)?('"'+String(v).replace(/"/g,'""')+'"'):String(v)).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'schedule.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  log('Exported CSV');
+  showFeedback('Schedule exported as CSV');
+}
+
+function exportICSPerStudent(){
+  // Generate one .ics per student as a zipped-ish multi-file download via data URL sequence
+  const byStudent = {};
+  for (const key of Object.keys(state.schedule)){
+    const s = state.schedule[key];
+    for (const id of s.assignees||[]){
+      (byStudent[id]=byStudent[id]||[]).push(s);
+    }
+  }
+  const pad2 = (n)=> String(n).padStart(2,'0');
+  const toDT = (dateStr, timeStr)=>{
+    const d = new Date(dateStr+'T'+timeStr+':00');
+    return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+'T'+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+'00Z';
+  };
+  for (const id of Object.keys(byStudent)){
+    const st = state.students.find(s=>s.id===id) || {name:'Student'};
+    const events = byStudent[id];
+    let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//StudentShiftScheduler//EN\n';
+    for (const ev of events){
+      const uid = `${ev.date}-${ev.start}-${id}@studentshifts`;
+      ics += 'BEGIN:VEVENT\n';
+      ics += 'UID:'+uid+'\n';
+      ics += 'DTSTAMP:'+toDT(ev.date, ev.start)+'\n';
+      ics += 'DTSTART:'+toDT(ev.date, ev.start)+'\n';
+      ics += 'DTEND:'+toDT(ev.date, ev.end)+'\n';
+      ics += 'SUMMARY:'+st.name+' shift '+ev.start+'-'+ev.end+'\n';
+      ics += 'DESCRIPTION:Assigned by StudentShiftScheduler\n';
+      ics += 'END:VEVENT\n';
+    }
+    ics += 'END:VCALENDAR';
+    const blob = new Blob([ics], {type:'text/calendar;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${st.name.replace(/[^a-z0-9_-]+/gi,'_') || 'student'}.ics`;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  log('Exported ICS per student');
+  showFeedback(`Exported ${Object.keys(byStudent).length} calendar files`);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
