@@ -1,0 +1,17 @@
+[
+  {
+    "id": "u11111111",
+    "name": "Alice Anderson",
+    "contracted_monthly_hours": 60
+  },
+  {
+    "id": "u22222222",
+    "name": "Bob Baker",
+    "contracted_monthly_hours": 45
+  },
+  {
+    "id": "u33333333",
+    "name": "Carol Carter",
+    "contracted_monthly_hours": 20
+  }
+]

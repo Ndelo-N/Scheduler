@@ -1,0 +1,509 @@
+/* Student Shift Scheduler PWA - Responsive Design */
+/* Mobile-first approach with progressive enhancement */
+
+/* ===== BASE MOBILE STYLES ===== */
+:root {
+  --mobile-padding: 16px;
+  --mobile-margin: 8px;
+  --mobile-font-size: 14px;
+  --mobile-header-height: 56px;
+  --mobile-nav-height: 60px;
+}
+
+/* ===== MOBILE LAYOUT (320px - 767px) ===== */
+@media (max-width: 767px) {
+  /* App Container */
+  .app-container {
+    padding: var(--mobile-padding);
+    font-size: var(--mobile-font-size);
+  }
+
+  /* Header */
+  .app-header {
+    height: var(--mobile-header-height);
+    padding: 0 var(--mobile-padding);
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .app-title {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .header-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-width: auto;
+  }
+
+  /* Navigation */
+  .app-nav {
+    height: var(--mobile-nav-height);
+    padding: 0 var(--mobile-padding);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .app-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 12px;
+    min-width: max-content;
+    padding: 0;
+  }
+
+  .nav-item {
+    padding: 12px 16px;
+    white-space: nowrap;
+    border-radius: 8px;
+    font-size: 14px;
+    min-width: auto;
+  }
+
+  /* Main Content */
+  .app-main {
+    padding: var(--mobile-padding);
+    min-height: calc(100vh - var(--mobile-header-height) - var(--mobile-nav-height));
+  }
+
+  /* Dashboard Grid */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: var(--mobile-margin);
+  }
+
+  .dashboard-card {
+    padding: var(--mobile-padding);
+    border-radius: 12px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  /* Calendar */
+  .calendar-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .calendar-grid {
+    min-width: 600px; /* Ensure calendar is scrollable on mobile */
+  }
+
+  .day-header {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .shift-slot {
+    padding: 4px 2px;
+    font-size: 10px;
+    min-height: 40px;
+  }
+
+  .shift-time {
+    font-size: 9px;
+    margin-bottom: 2px;
+  }
+
+  .student-chip {
+    padding: 2px 4px;
+    font-size: 9px;
+    margin: 1px;
+  }
+
+  /* Forms */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 8px;
+  }
+
+  .form-textarea {
+    min-height: 100px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+    min-height: 44px; /* Touch target size */
+  }
+
+  .btn-sm {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+
+  .btn-lg {
+    padding: 16px 24px;
+    font-size: 16px;
+    min-height: 52px;
+  }
+
+  /* Modals */
+  .modal {
+    padding: var(--mobile-padding);
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-body {
+    padding: 16px;
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+  }
+
+  .modal-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+
+  /* Tables */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 500px;
+    font-size: 12px;
+  }
+
+  .table-header {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+
+  .table-cell {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+
+  /* Toast Notifications */
+  .toast {
+    bottom: 20px;
+    left: var(--mobile-padding);
+    right: var(--mobile-padding);
+    width: auto;
+    border-radius: 8px;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Touch Interactions */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Swipe Gestures */
+  .swipeable {
+    touch-action: pan-x;
+    user-select: none;
+  }
+
+  /* Pull to Refresh */
+  .pull-to-refresh {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pull-to-refresh-indicator {
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: top 0.3s ease;
+  }
+
+  .pull-to-refresh.active .pull-to-refresh-indicator {
+    top: 20px;
+  }
+}
+
+/* ===== TABLET STYLES (768px - 1023px) ===== */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app-container {
+    padding: 24px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .calendar-grid {
+    min-width: auto;
+  }
+
+  .nav-list {
+    justify-content: center;
+  }
+
+  .modal-content {
+    max-width: 600px;
+    margin: 20px auto;
+  }
+
+  .table-container {
+    overflow-x: visible;
+  }
+
+  .data-table {
+    min-width: auto;
+  }
+}
+
+/* ===== DESKTOP STYLES (1024px+) ===== */
+@media (min-width: 1024px) {
+  .app-container {
+    padding: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .calendar-grid {
+    min-width: auto;
+  }
+
+  .nav-list {
+    justify-content: flex-start;
+  }
+
+  .modal-content {
+    max-width: 800px;
+    margin: 40px auto;
+  }
+
+  /* Hover Effects */
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .nav-item:hover {
+    background-color: var(--primary-hover);
+  }
+
+  .dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* ===== LARGE DESKTOP STYLES (1440px+) ===== */
+@media (min-width: 1440px) {
+  .app-container {
+    padding: 40px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+
+  .calendar-grid {
+    font-size: 14px;
+  }
+
+  .shift-slot {
+    min-height: 50px;
+  }
+}
+
+/* ===== LANDSCAPE ORIENTATION ===== */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-header {
+    height: 48px;
+  }
+
+  .app-nav {
+    height: 48px;
+  }
+
+  .app-main {
+    min-height: calc(100vh - 96px);
+  }
+
+  .modal-content {
+    max-height: 95vh;
+  }
+}
+
+/* ===== HIGH DPI DISPLAYS ===== */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .icon,
+  .logo,
+  .avatar {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* ===== ACCESSIBILITY IMPROVEMENTS ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: #000000;
+    --text-muted: #000000;
+  }
+
+  .btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .app-header,
+  .app-nav,
+  .modal,
+  .toast,
+  .btn {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .calendar-grid {
+    break-inside: avoid;
+  }
+
+  .dashboard-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+}
+
+/* ===== UTILITY CLASSES ===== */
+.mobile-only {
+  display: block;
+}
+
+.tablet-only {
+  display: none;
+}
+
+.desktop-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .tablet-only {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .tablet-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* Touch-friendly spacing */
+.touch-spacing {
+  padding: 12px;
+  margin: 8px;
+}
+
+.touch-spacing-sm {
+  padding: 8px;
+  margin: 4px;
+}
+
+.touch-spacing-lg {
+  padding: 16px;
+  margin: 12px;
+}
+
+@media (max-width: 900px) {
+  .schedule-content {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .schedule-sidebar {
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .three-month-container {
+    flex-direction: column;
+  }
+}
