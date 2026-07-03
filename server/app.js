@@ -37,7 +37,19 @@ function createStaticGuard() {
 
 function createApp(pool, { pwaDir = process.env.PWA_DIR || null } = {}) {
   const app = express();
-  app.set('trust proxy', true);
+  // trust proxy (F-06): MUST reflect real deployment topology, or the leftmost
+  // X-Forwarded-For becomes attacker-spoofable and defeats IP-based rate limiting.
+  // Set TRUST_PROXY to the number of reverse-proxy hops in front of this app
+  // (UP infra: typically 1), a subnet/IP list, or a keyword like 'loopback'.
+  // Unset / '' / '0'  => trust nothing (direct-connect / dev) — spoofing impossible.
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy === undefined || trustProxy === '' || trustProxy === '0') {
+    app.set('trust proxy', false);
+  } else if (/^\d+$/.test(trustProxy)) {
+    app.set('trust proxy', Number(trustProxy));
+  } else {
+    app.set('trust proxy', trustProxy);
+  }
   app.disable('x-powered-by');
 
   app.use(securityHeaders());
