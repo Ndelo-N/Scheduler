@@ -1,0 +1,225 @@
+diff --git a/.env.example b/.env.example
+index 481572c3..581b71bc 100644
+--- a/.env.example
++++ b/.env.example
+@@ -11,6 +11,12 @@ DB_USER=postgres
+ DB_PASSWORD=password
+ # DATABASE_URL=postgres://postgres:password@localhost:5432/shift_scheduler
+ 
++# Production TLS (F-05): when NODE_ENV=production, the DB connection verifies the
++# server certificate. If Postgres uses an internal/institutional CA (e.g. UP), set
++# DB_CA_CERT to the CA PEM path so the chain validates. Without it, verification
++# uses the system trust store and an untrusted cert will (correctly) fail to connect.
++# DB_CA_CERT=/etc/ssl/certs/up-postgres-ca.pem
++
+ # PWA static root (default: repo root with path guard; production: ./public)
+ # PWA_DIR=.
+ 
+diff --git a/server/database/manager.js b/server/database/manager.js
+index f7350a71..b8de8a4e 100644
+--- a/server/database/manager.js
++++ b/server/database/manager.js
+@@ -3,6 +3,7 @@
+ const { Pool } = require('pg');
+ const MemoryDatabase = require('./memory');
+ const Logger = require('../utils/logger');
++const { dbSsl } = require('./sslConfig');
+ 
+ class DatabaseManager {
+   constructor(options = {}) {
+@@ -32,7 +33,7 @@ class DatabaseManager {
+           database: process.env.DB_NAME || 'shift_scheduler',
+           user: process.env.DB_USER || 'postgres',
+           password: process.env.DB_PASSWORD || 'password',
+-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
++          ssl: dbSsl(),
+         };
+ 
+     this.pool = new Pool(config);
+diff --git a/server/database/sslConfig.js b/server/database/sslConfig.js
+new file mode 100644
+index 00000000..da090de8
+--- /dev/null
++++ b/server/database/sslConfig.js
+@@ -0,0 +1,20 @@
++'use strict';
++const fs = require('fs');
++/**
++ * Postgres SSL configuration (F-05).
++ * Production: verify the server certificate (rejectUnauthorized:true) to prevent
++ * MITM. For an internal/institutional CA (e.g. UP), set DB_CA_CERT to the CA PEM
++ * path so the chain validates without disabling verification.
++ * Non-production: SSL disabled (local loopback dev).
++ *
++ * Fails CLOSED: if the CA isn't configured for an internal cert, the connection
++ * errors loudly rather than silently accepting an unverified (MITM-able) peer.
++ */
++function dbSsl(env = process.env) {
++  if (env.NODE_ENV !== 'production') return false;
++  const cfg = { rejectUnauthorized: true };
++  if (env.DB_CA_CERT) cfg.ca = fs.readFileSync(env.DB_CA_CERT, 'utf8');
++  return cfg;
++}
++
++module.exports = { dbSsl };
+diff --git a/server/index.js b/server/index.js
+index 63742f07..0e5cdfbb 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -9,6 +9,7 @@
+ 
+ const path = require('path');
+ const { Pool } = require('pg');
++const { dbSsl } = require('./database/sslConfig');
+ const { createApp } = require('./app');
+ const { buildServer } = require('./httpsServer');
+ const { warmup } = require('./security/credentialVerifier');
+@@ -22,7 +23,7 @@ const pool = new Pool({
+   database: process.env.DB_NAME || 'shift_scheduler',
+   user: process.env.DB_USER || 'postgres',
+   password: process.env.DB_PASSWORD || 'password',
+-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
++  ssl: dbSsl(),
+ });
+ 
+ // Default: serve PWA from repo root with staticGuard (see server/app.js).
+diff --git a/server/routes/auth.js b/server/routes/auth.js
+index 98c4bb58..ba25c6de 100644
+--- a/server/routes/auth.js
++++ b/server/routes/auth.js
+@@ -21,6 +21,14 @@ const { COOKIE_NAME, SESSION_TTL_MS, parseCookies, cookieOptions } = require('..
+ function createAuthRouter(pool) {
+   const router = express.Router();
+   const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
++  // F-08: throttle current-password guessing on change-password. Keyed by the
++  // authenticated user (mounted AFTER requireAuth) so it can't be IP-spoofed and
++  // shared-NAT users can't lock each other out.
++  const changePasswordLimiter = createRateLimiter({
++    windowMs: 15 * 60 * 1000,
++    max: 5,
++    keyGen: (req) => `cpw:${(req.user && req.user.id) || req.ip || 'unknown'}`,
++  });
+ 
+   router.post('/login', loginLimiter, async (req, res) => {
+     const { uNumber, password } = req.body || {};
+@@ -42,6 +50,9 @@ function createAuthRouter(pool) {
+     }
+   });
+ 
++  // F-13: intentionally NOT behind requireAuth. Logout only destroys the caller's
++  // own session token (from their cookie) and is idempotent — calling it without a
++  // valid session is a harmless no-op, so gating it behind auth would add nothing.
+   router.post('/logout', async (req, res) => {
+     const token = parseCookies(req)[COOKIE_NAME];
+     try { await sessionStore.destroySession(pool, token); } catch { /* idempotent */ }
+@@ -69,7 +80,7 @@ function createAuthRouter(pool) {
+   // rotate the hash, clear the must-change flag, revoke ALL of the user's
+   // sessions (kills any stolen session), then re-issue a fresh cookie for the
+   // caller so they stay logged in.
+-  router.post('/change-password', requireAuth(pool), async (req, res) => {
++  router.post('/change-password', requireAuth(pool), changePasswordLimiter, async (req, res) => {
+     const { currentPassword, newPassword } = req.body || {};
+     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string'
+         || !currentPassword || !newPassword) {
+diff --git a/tests/changePasswordLimit.smoke.js b/tests/changePasswordLimit.smoke.js
+new file mode 100644
+index 00000000..00b880c4
+--- /dev/null
++++ b/tests/changePasswordLimit.smoke.js
+@@ -0,0 +1,58 @@
++'use strict';
++/* F-08 — change-password rate limiter. Proves the 6th wrong-password attempt
++ * within the window is throttled (429) while the first 5 reach the handler (403).
++ * Run: node tests/changePasswordLimit.smoke.js */
++const request = require('supertest');
++
++const FUTURE = new Date(Date.now() + 3600e3).toISOString();
++// A real scrypt hash the guesses will never match (verify → false → 403).
++const NEVER_MATCH_HASH = 'scrypt$32768$8$1$' + 'a'.repeat(32) + '$' + 'b'.repeat(64);
++
++function authedPool() {
++  return {
++    activeMode: 'postgres',
++    query: async (sql) => {
++      const q = String(sql);
++      if (q.includes('FROM user_sessions')) {
++        // validateSession → authenticated user
++        return { rows: [{
++          expires_at: FUTURE, id: 'user-123', student_number: 'u12345678',
++          role: 'student', first_name: 'Test', last_name: 'User',
++          is_active: true, must_change_password: false,
++        }], rowCount: 1 };
++      }
++      if (q.startsWith('UPDATE user_sessions')) return { rows: [], rowCount: 1 }; // slide expiry
++      if (q.includes('SELECT password_hash FROM users')) {
++        return { rows: [{ password_hash: NEVER_MATCH_HASH }], rowCount: 1 };
++      }
++      if (q.toLowerCase().includes('select 1')) return { rows: [{ ok: 1 }], rowCount: 1 };
++      return { rows: [], rowCount: 0 };
++    },
++  };
++}
++
++let pass = 0, fail = 0;
++const ok = (c, m) => (c ? (pass++, console.log('  PASS', m)) : (fail++, console.log('  FAIL', m)));
++
++async function run() {
++  delete require.cache[require.resolve('../server/app')];
++  const { createApp } = require('../server/app');
++  const app = createApp(authedPool(), { pwaDir: null });
++
++  const attempt = () => request(app)
++    .post('/api/auth/change-password')
++    .set('Cookie', 'sid=validtoken')
++    .send({ currentPassword: 'wrong-guess', newPassword: 'Str0ng!NewPassw0rd' });
++
++  console.log('[ change-password: 5 allowed (403 wrong pw), 6th throttled (429) ]');
++  const statuses = [];
++  for (let i = 0; i < 6; i++) statuses.push((await attempt()).status);
++  console.log('  statuses:', statuses.join(', '));
++
++  ok(statuses.slice(0, 5).every(s => s === 403), 'first 5 reach handler → 403 (wrong current password)');
++  ok(statuses[5] === 429, '6th is rate-limited → 429');
++
++  console.log(`\n=== ${pass} passed, ${fail} failed ===`);
++  process.exit(fail ? 1 : 0);
++}
++run().catch((e) => { console.error(e); process.exit(1); });
+diff --git a/tests/dbSsl.smoke.js b/tests/dbSsl.smoke.js
+new file mode 100644
+index 00000000..07beac81
+--- /dev/null
++++ b/tests/dbSsl.smoke.js
+@@ -0,0 +1,32 @@
++'use strict';
++/* F-05 — Postgres SSL config proof. Run: node tests/dbSsl.smoke.js */
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++const { dbSsl } = require('../server/database/sslConfig');
++
++let pass = 0, fail = 0;
++const ok = (c, m) => (c ? (pass++, console.log('  PASS', m)) : (fail++, console.log('  FAIL', m)));
++
++// dev / non-production → SSL disabled
++ok(dbSsl({ NODE_ENV: 'development' }) === false, 'development → ssl disabled (false)');
++ok(dbSsl({}) === false, 'unset NODE_ENV → ssl disabled (false)');
++
++// production, no CA → verification ON, no ca
++const prod = dbSsl({ NODE_ENV: 'production' });
++ok(prod && prod.rejectUnauthorized === true, 'production → rejectUnauthorized:true (MITM prevented)');
++ok(prod.ca === undefined, 'production without DB_CA_CERT → no ca (uses system trust store)');
++
++// production, with CA → verification ON + ca loaded
++const caPath = path.join(os.tmpdir(), 'test-ca.pem');
++fs.writeFileSync(caPath, '-----BEGIN CERTIFICATE-----\nTESTCA\n-----END CERTIFICATE-----\n');
++const prodCa = dbSsl({ NODE_ENV: 'production', DB_CA_CERT: caPath });
++ok(prodCa.rejectUnauthorized === true, 'production+CA → still verifies (rejectUnauthorized:true)');
++ok(typeof prodCa.ca === 'string' && prodCa.ca.includes('TESTCA'), 'production+CA → CA cert loaded from DB_CA_CERT');
++fs.unlinkSync(caPath);
++
++// critical negative: never returns the old insecure shape
++ok(!(prod && prod.rejectUnauthorized === false), 'never emits rejectUnauthorized:false (the F-05 vuln)');
++
++console.log(`\n=== ${pass} passed, ${fail} failed ===`);
++process.exit(fail ? 1 : 0);

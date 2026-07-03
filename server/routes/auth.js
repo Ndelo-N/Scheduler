@@ -21,6 +21,14 @@ const { COOKIE_NAME, SESSION_TTL_MS, parseCookies, cookieOptions } = require('..
 function createAuthRouter(pool) {
   const router = express.Router();
   const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+  // F-08: throttle current-password guessing on change-password. Keyed by the
+  // authenticated user (mounted AFTER requireAuth) so it can't be IP-spoofed and
+  // shared-NAT users can't lock each other out.
+  const changePasswordLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    keyGen: (req) => `cpw:${(req.user && req.user.id) || req.ip || 'unknown'}`,
+  });
 
   router.post('/login', loginLimiter, async (req, res) => {
     const { uNumber, password } = req.body || {};
@@ -42,6 +50,9 @@ function createAuthRouter(pool) {
     }
   });
 
+  // F-13: intentionally NOT behind requireAuth. Logout only destroys the caller's
+  // own session token (from their cookie) and is idempotent — calling it without a
+  // valid session is a harmless no-op, so gating it behind auth would add nothing.
   router.post('/logout', async (req, res) => {
     const token = parseCookies(req)[COOKIE_NAME];
     try { await sessionStore.destroySession(pool, token); } catch { /* idempotent */ }
@@ -69,7 +80,7 @@ function createAuthRouter(pool) {
   // rotate the hash, clear the must-change flag, revoke ALL of the user's
   // sessions (kills any stolen session), then re-issue a fresh cookie for the
   // caller so they stay logged in.
-  router.post('/change-password', requireAuth(pool), async (req, res) => {
+  router.post('/change-password', requireAuth(pool), changePasswordLimiter, async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string'
         || !currentPassword || !newPassword) {

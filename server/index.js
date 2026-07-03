@@ -9,6 +9,7 @@
 
 const path = require('path');
 const { Pool } = require('pg');
+const { dbSsl } = require('./database/sslConfig');
 const { createApp } = require('./app');
 const { buildServer } = require('./httpsServer');
 const { warmup } = require('./security/credentialVerifier');
@@ -22,7 +23,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'shift_scheduler',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: dbSsl(),
 });
 
 // Default: serve PWA from repo root with staticGuard (see server/app.js).

@@ -3,6 +3,7 @@
 const { Pool } = require('pg');
 const MemoryDatabase = require('./memory');
 const Logger = require('../utils/logger');
+const { dbSsl } = require('./sslConfig');
 
 class DatabaseManager {
   constructor(options = {}) {
@@ -32,7 +33,7 @@ class DatabaseManager {
           database: process.env.DB_NAME || 'shift_scheduler',
           user: process.env.DB_USER || 'postgres',
           password: process.env.DB_PASSWORD || 'password',
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          ssl: dbSsl(),
         };
 
     this.pool = new Pool(config);
