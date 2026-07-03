@@ -21,7 +21,7 @@
     "test": "jest",
     "test:server": "jest tests/server",
     "harness:hours": "node tests/harness/hours.js",
-    "test:smoke": "node tests/payrollParser.smoke.js && node tests/identityMap.smoke.js && node tests/effectiveRoster.smoke.js && node tests/reconcile.smoke.js",
+    "test:smoke": "node tests/payrollParser.smoke.js && node tests/identityMap.smoke.js && node tests/effectiveRoster.smoke.js && node tests/reconcile.smoke.js && node tests/schedulingEngine.smoke.js && node tests/schedulingEngineState.smoke.js && node tests/hoursLedger.smoke.js && node tests/escapeHtml.smoke.js && node tests/trustProxy.smoke.js && node tests/dbSsl.smoke.js && node tests/changePasswordLimit.smoke.js",
     "test:watch": "jest --watch",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",

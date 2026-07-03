@@ -4,6 +4,7 @@
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const { dbSsl } = require('../server/database/sslConfig');
 
 // Database configuration
 const dbConfig = {
@@ -12,7 +13,7 @@ const dbConfig = {
   database: process.env.DB_NAME || 'shift_scheduler',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: dbSsl()
 };
 
 class DatabaseSetup {
