@@ -1,0 +1,75 @@
+name: CI
+
+# Runs the test safety net on every push and PR. Two jobs:
+#   1) unit-and-smoke — jest + all DB-independent smoke suites, across Node 18/20/22
+#   2) integration-pg — full deployment path + auth-flow + prefs persistence against
+#      a real PostgreSQL 16 service container
+# Note: `npm run lint` is intentionally NOT run here — the repo has no ESLint config
+# yet, so the lint script cannot execute. Add a config first, then a lint job.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-and-smoke:
+    name: Unit + smoke (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18.x', '20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Jest (server routes)
+        run: npm test
+      - name: Smoke suites (188 DB-independent assertions)
+        run: npm run test:smoke
+
+  integration-pg:
+    name: Integration (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: scheduler_ci
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Deploy schema + migrations + seed
+        run: node database/setup.js setup
+      - name: Auth-flow lifecycle (login → session → protected → logout)
+        run: node tests/authFlow.pg.smoke.js
+      - name: Notification-preference persistence (survives restart)
+        run: node tests/notificationPrefs.pg.smoke.js
