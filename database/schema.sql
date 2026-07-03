@@ -413,6 +413,14 @@ FROM shift_assignments sa
 JOIN shifts s ON sa.shift_id = s.id
 JOIN users u ON sa.user_id = u.id;
 
+-- ===== NOTIFICATION PREFERENCES (F-14) =====
+-- Per-user notification settings, persisted (previously in-memory, lost on restart).
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ===== ROW LEVEL SECURITY (RLS) — F-07 =====
 -- STATUS: schema-correct and fail-closed, NOT YET ACTIVE for the app.
 -- The app currently connects as a superuser/owner, which bypasses RLS; the
@@ -486,6 +494,12 @@ CREATE POLICY contracts_own_data ON student_contracts FOR ALL TO authenticated
 
 DROP POLICY IF EXISTS test_dates_own_data ON student_test_dates;
 CREATE POLICY test_dates_own_data ON student_test_dates FOR ALL TO authenticated
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS notif_prefs_own_data ON notification_preferences;
+CREATE POLICY notif_prefs_own_data ON notification_preferences FOR ALL TO authenticated
   USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
   WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
 

@@ -30,28 +30,43 @@ function createProtectedRouter(pool) {
     res.json({ ok: true, users: r.rows });
   });
 
-  // Notification preferences (per-user, in-memory until Phase 11.4 Postgres table)
-  const prefsByUser = Object.create(null);
-
-  router.get('/notifications/preferences', (req, res) => {
-    res.json(prefsByUser[req.user.id] || {});
+  // Notification preferences (per-user, persisted — F-14).
+  router.get('/notifications/preferences', async (req, res) => {
+    try {
+      const r = await pool.query(
+        'SELECT preferences FROM notification_preferences WHERE user_id = $1',
+        [req.user.id]
+      );
+      res.json(r.rows[0] ? r.rows[0].preferences : {});
+    } catch (e) {
+      console.error('get preferences error:', e.message);
+      res.status(500).json({ error: 'Could not load preferences' });
+    }
   });
 
-  router.put('/notifications/preferences', (req, res) => {
+  // PUT/POST both upsert-and-merge (shallow: new keys win), matching prior semantics.
+  const upsertPreferences = async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
       return res.status(400).json({ error: 'preferences must be an object' });
     }
-    prefsByUser[req.user.id] = { ...(prefsByUser[req.user.id] || {}), ...req.body };
-    res.json(prefsByUser[req.user.id]);
-  });
-
-  router.post('/notifications/preferences', (req, res) => {
-    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
-      return res.status(400).json({ error: 'preferences must be an object' });
+    try {
+      const r = await pool.query(
+        `INSERT INTO notification_preferences (user_id, preferences, updated_at)
+         VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id) DO UPDATE
+           SET preferences = notification_preferences.preferences || EXCLUDED.preferences,
+               updated_at = CURRENT_TIMESTAMP
+         RETURNING preferences`,
+        [req.user.id, JSON.stringify(req.body)]
+      );
+      res.json(r.rows[0].preferences);
+    } catch (e) {
+      console.error('save preferences error:', e.message);
+      res.status(500).json({ error: 'Could not save preferences' });
     }
-    prefsByUser[req.user.id] = { ...(prefsByUser[req.user.id] || {}), ...req.body };
-    res.json(prefsByUser[req.user.id]);
-  });
+  };
+  router.put('/notifications/preferences', upsertPreferences);
+  router.post('/notifications/preferences', upsertPreferences);
 
   return router;
 }
