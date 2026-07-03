@@ -313,7 +313,7 @@ class SettingsView {
       <div class="config-list-item">
         <span>${h.date}</span>
         <span>${this.escape(h.name)}</span>
-        <button class="btn btn-sm btn-icon" data-remove-holiday="${h.date}" title="Remove">×</button>
+        <button class="btn btn-sm btn-icon" data-remove-holiday="${this.escape(h.date)}" title="Remove">×</button>
       </div>
     `).join('');
   }
@@ -330,7 +330,7 @@ class SettingsView {
         <span>${sh.date}</span>
         <span>${sh.start}–${sh.end}</span>
         <span>${this.escape(sh.name)}</span>
-        <button class="btn btn-sm btn-icon" data-remove-special="${sh.date}" title="Remove">×</button>
+        <button class="btn btn-sm btn-icon" data-remove-special="${this.escape(sh.date)}" title="Remove">×</button>
       </div>
     `).join('');
   }
@@ -347,7 +347,7 @@ class SettingsView {
         <span>${bh.startDate} → ${bh.endDate}</span>
         <span>${this.escape(bh.name || '')}</span>
         <button class="btn btn-sm btn-icon"
-          data-remove-batch="${bh.startDate}|${bh.endDate}" title="Remove">×</button>
+          data-remove-batch="${this.escape(bh.startDate)}|${this.escape(bh.endDate)}" title="Remove">×</button>
       </div>
     `).join('');
   }
@@ -365,7 +365,7 @@ class SettingsView {
         <span>req ${t.required || 1}</span>
         ${t.isOpening ? '<span class="tag tag-open">Open</span>' : ''}
         ${t.isClosing ? '<span class="tag tag-close">Close</span>' : ''}
-        <button class="btn btn-sm btn-icon" data-remove-template="${t.id}" title="Remove">×</button>
+        <button class="btn btn-sm btn-icon" data-remove-template="${this.escape(t.id)}" title="Remove">×</button>
       </div>
     `).join('');
     const badge = this.container.querySelector('.config-badge');
@@ -386,7 +386,7 @@ class SettingsView {
         <span>${this.escape(ap.name)}</span>
         <span class="config-help">${ap.notificationDaysBefore || 30}d notice</span>
         <button class="btn btn-sm btn-icon"
-          data-remove-assessment="${ap.startDate}|${ap.endDate}" title="Remove">×</button>
+          data-remove-assessment="${this.escape(ap.startDate)}|${this.escape(ap.endDate)}" title="Remove">×</button>
       </div>
     `).join('');
   }
@@ -405,9 +405,9 @@ class SettingsView {
         <span>${ts.required} req · max ${ts.maxCapacity || ts.required} · ${this.escape(ts.name)}</span>
         ${ts.isLargeTest ? '<span class="tag tag-assessment">Large</span>' : ''}
         ${ts.isEarlyOpening ? '<span class="tag tag-open">Early</span>' : ''}
-        <button class="btn btn-sm btn-secondary" data-adjust-test="${ts.id}" title="Adjust capacity">±</button>
+        <button class="btn btn-sm btn-secondary" data-adjust-test="${this.escape(ts.id)}" title="Adjust capacity">±</button>
         <button class="btn btn-sm btn-icon"
-          data-remove-test="${ts.date}|${ts.start}" title="Remove">×</button>
+          data-remove-test="${this.escape(ts.date)}|${this.escape(ts.start)}" title="Remove">×</button>
       </div>
     `).join('');
   }
@@ -748,9 +748,8 @@ class SettingsView {
   }
 
   escape(text) {
-    const d = document.createElement('div');
-    d.textContent = text || '';
-    return d.innerHTML;
+    // Delegate to the canonical quote-safe escaper (Phase 3 / F-04).
+    return window.SchedulerUtils.escapeHtml(text);
   }
 
   destroy() {

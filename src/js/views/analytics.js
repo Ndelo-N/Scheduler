@@ -201,7 +201,7 @@ class AnalyticsView {
         <tbody>
           ${rows.map(r => `
             <tr>
-              <td><span class="sq" style="background:${r.color}"></span> ${r.name}</td>
+              <td><span class="sq" style="background:${r.color}"></span> ${SchedulerUtils.escapeHtml(r.name)}</td>
               <td>${r.assigned}h</td>
               <td>${r.contracted}h</td>
               <td>${r.pct}%</td>
@@ -242,10 +242,10 @@ class AnalyticsView {
       <div class="performance-item">
         <div class="student-info">
           <div class="student-avatar" style="background-color: ${student.color}">
-            ${student.name.charAt(0).toUpperCase()}
+            ${SchedulerUtils.escapeHtml(student.name.charAt(0).toUpperCase())}
           </div>
           <div class="student-details">
-            <div class="student-name">${student.name}</div>
+            <div class="student-name">${SchedulerUtils.escapeHtml(student.name)}</div>
             <div class="student-hours">${student.totalHours}h total</div>
           </div>
         </div>

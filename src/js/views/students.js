@@ -1190,9 +1190,8 @@ class StudentsView {
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+    // Delegate to canonical quote-safe escaper (Phase 3 / F-04).
+    return window.SchedulerUtils.escapeHtml(text);
   }
 
   getLedgerMonthKey() {

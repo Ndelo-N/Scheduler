@@ -143,7 +143,7 @@ class DashboardView {
           <div class="shift-assignees">
             ${shift.assignees.map(assignee => `
               <span class="assignee-chip" style="background-color: ${assignee.color}">
-                ${assignee.name}
+                ${SchedulerUtils.escapeHtml(assignee.name)}
               </span>
             `).join('')}
           </div>
@@ -173,7 +173,7 @@ class DashboardView {
       swapsList.innerHTML = swaps.map(swap => `
         <div class="swap-item">
           <div class="swap-requester">
-            <strong>${swap.requesterName}</strong> wants to swap
+            <strong>${SchedulerUtils.escapeHtml(swap.requesterName)}</strong> wants to swap
           </div>
           <div class="swap-details">
             <div class="swap-from">
@@ -186,15 +186,23 @@ class DashboardView {
             </div>
           </div>
           <div class="swap-actions">
-            <button class="btn btn-sm btn-success" onclick="window.app.swaps.approveSwap(${swap.id})">
+            <button class="btn btn-sm btn-success" data-swap-action="approve" data-swap-id="${swap.id}">
               Approve
             </button>
-            <button class="btn btn-sm btn-danger" onclick="window.app.swaps.rejectSwap(${swap.id})">
+            <button class="btn btn-sm btn-danger" data-swap-action="reject" data-swap-id="${swap.id}">
               Reject
             </button>
           </div>
         </div>
       `).join('');
+
+      swapsList.querySelectorAll('[data-swap-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.swapId);
+          if (btn.dataset.swapAction === 'approve') window.app.swaps.approveSwap(id);
+          else if (btn.dataset.swapAction === 'reject') window.app.swaps.rejectSwap(id);
+        });
+      });
       
     } catch (error) {
       console.error('❌ Failed to load pending swaps:', error);
@@ -231,7 +239,7 @@ class DashboardView {
             <i class="icon-${item.icon}"></i>
           </div>
           <div class="activity-content">
-            <div class="activity-message">${item.message}</div>
+            <div class="activity-message">${SchedulerUtils.escapeHtml(item.message)}</div>
             <div class="activity-time">${this.formatTimeAgo(item.timestamp)}</div>
           </div>
         </div>

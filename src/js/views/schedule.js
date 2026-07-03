@@ -341,7 +341,7 @@ class ScheduleView {
       return `
       <div class="student-item" data-student-id="${student.id}" draggable="true">
         <div class="student-avatar" style="background-color: ${student.color}">
-          ${student.name.charAt(0).toUpperCase()}
+          ${this.escapeHtml(student.name.charAt(0).toUpperCase())}
         </div>
         <div class="student-info">
           <div class="student-name">${this.escapeHtml(student.name)}${indicator}</div>
@@ -413,7 +413,7 @@ class ScheduleView {
         const date = this.getDateForDay(dayIndex);
         const classes = ['day-header'];
         if (this.isAssessmentDay(date)) classes.push('assessment-day-header');
-        return `<div class="${classes.join(' ')}" data-date="${date}" title="${this.getDayTooltip(date)}">${day}<span class="day-date">${date.slice(8)}</span></div>`;
+        return `<div class="${classes.join(' ')}" data-date="${date}" title="${this.escapeHtml(this.getDayTooltip(date))}">${day}<span class="day-date">${date.slice(8)}</span></div>`;
       }).join('')}
     `;
 
@@ -430,7 +430,7 @@ class ScheduleView {
           if (this.isAssessmentDay(date)) cellClasses.push('assessment-day');
           
           return `
-            <div class="${cellClasses.join(' ')}" data-date="${date}" data-time="${timeSlot}" title="${this.getDayTooltip(date)}">
+            <div class="${cellClasses.join(' ')}" data-date="${date}" data-time="${timeSlot}" title="${this.escapeHtml(this.getDayTooltip(date))}">
               ${shifts.map(shift => this.renderShift(shift)).join('')}
             </div>
           `;
@@ -648,9 +648,8 @@ class ScheduleView {
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+    // Delegate to canonical quote-safe escaper (Phase 3 / F-04).
+    return window.SchedulerUtils.escapeHtml(text);
   }
 
   updateStats() {

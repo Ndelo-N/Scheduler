@@ -215,9 +215,8 @@ class SwapsView {
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+    // Delegate to canonical quote-safe escaper (Phase 3 / F-04).
+    return window.SchedulerUtils.escapeHtml(text);
   }
 
   renderSwapsList() {
@@ -253,7 +252,7 @@ class SwapsView {
         <div class="request-header">
           <div class="requester-info">
             <div class="requester-avatar" style="background-color: ${requester.color}">
-              ${(requester.name || '?').charAt(0).toUpperCase()}
+              ${this.escapeHtml((requester.name || '?').charAt(0).toUpperCase())}
             </div>
             <div class="requester-details">
               <div class="requester-name">${this.escapeHtml(requester.name)}</div>
@@ -272,7 +271,7 @@ class SwapsView {
               <div class="swap-shift">
                 <div class="shift-date">${this.formatDate(request.fromShift.date)}</div>
                 <div class="shift-time">${request.fromShift.start} - ${request.fromShift.end}</div>
-                <div class="shift-location">${request.fromShift.location || 'Main Campus'}</div>
+                <div class="shift-location">${this.escapeHtml(request.fromShift.location || 'Main Campus')}</div>
               </div>
             </div>
             ${!isCover ? '<div class="swap-arrow"><i class="icon-arrow-right"></i></div>' : ''}
@@ -281,7 +280,7 @@ class SwapsView {
 
           ${request.reason ? `
             <div class="request-reason">
-              <strong>Reason:</strong> ${request.reason}
+              <strong>Reason:</strong> ${this.escapeHtml(request.reason)}
             </div>
           ` : ''}
 
@@ -295,15 +294,15 @@ class SwapsView {
                   <div class="offer-item">
                     <div class="offer-student">
                       <div class="student-avatar" style="background-color: ${offer.student.color}">
-                        ${offer.student.name.charAt(0).toUpperCase()}
+                        ${this.escapeHtml(offer.student.name.charAt(0).toUpperCase())}
                       </div>
-                      <span class="student-name">${offer.student.name}</span>
+                      <span class="student-name">${this.escapeHtml(offer.student.name)}</span>
                     </div>
                     <div class="offer-actions">
-                      <button class="btn btn-sm btn-success" onclick="window.app.swaps.acceptOffer(${request.id}, ${offer.id})">
+                      <button class="btn btn-sm btn-success" data-offer-action="accept" data-req-id="${request.id}" data-offer-id="${offer.id}">
                         Accept
                       </button>
-                      <button class="btn btn-sm btn-danger" onclick="window.app.swaps.rejectOffer(${request.id}, ${offer.id})">
+                      <button class="btn btn-sm btn-danger" data-offer-action="reject" data-req-id="${request.id}" data-offer-id="${offer.id}">
                         Reject
                       </button>
                     </div>
@@ -316,29 +315,29 @@ class SwapsView {
 
         <div class="request-actions">
           ${request.status === 'pending' ? `
-            <button class="btn btn-success" onclick="window.app.swaps.approveRequest(${request.id})">
+            <button class="btn btn-success" data-req-action="approve" data-req-id="${request.id}">
               <i class="icon-check"></i>
               Approve
             </button>
-            <button class="btn btn-danger" onclick="window.app.swaps.rejectRequest(${request.id})">
+            <button class="btn btn-danger" data-req-action="reject" data-req-id="${request.id}">
               <i class="icon-x"></i>
               Reject
             </button>
-            <button class="btn btn-secondary" onclick="window.app.swaps.makeOffer(${request.id})">
+            <button class="btn btn-secondary" data-req-action="makeOffer" data-req-id="${request.id}">
               <i class="icon-hand"></i>
               Make Offer
             </button>
           ` : ''}
           
           ${request.status === 'approved' ? `
-            <button class="btn btn-info" onclick="window.app.swaps.viewDetails(${request.id})">
+            <button class="btn btn-info" data-req-action="viewDetails" data-req-id="${request.id}">
               <i class="icon-eye"></i>
               View Details
             </button>
           ` : ''}
           
           ${request.status === 'rejected' ? `
-            <button class="btn btn-secondary" onclick="window.app.swaps.viewDetails(${request.id})">
+            <button class="btn btn-secondary" data-req-action="viewDetails" data-req-id="${request.id}">
               <i class="icon-eye"></i>
               View Details
             </button>
@@ -347,6 +346,27 @@ class SwapsView {
       </div>
     `;
     }).join('');
+
+    // CSP-safe wiring (replaces inline onclick — Phase 3 / F-11)
+    swapsList.querySelectorAll('[data-req-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const reqId = Number(btn.dataset.reqId);
+        switch (btn.dataset.reqAction) {
+          case 'approve': return window.app.swaps.approveRequest(reqId);
+          case 'reject': return window.app.swaps.rejectRequest(reqId);
+          case 'makeOffer': return window.app.swaps.makeOffer(reqId);
+          case 'viewDetails': return window.app.swaps.viewDetails(reqId);
+        }
+      });
+    });
+    swapsList.querySelectorAll('[data-offer-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const reqId = Number(btn.dataset.reqId);
+        const offerId = Number(btn.dataset.offerId);
+        if (btn.dataset.offerAction === 'accept') window.app.swaps.acceptOffer(reqId, offerId);
+        else if (btn.dataset.offerAction === 'reject') window.app.swaps.rejectOffer(reqId, offerId);
+      });
+    });
   }
 
   getFilteredRequests() {
@@ -436,7 +456,7 @@ class SwapsView {
     }
     const select = document.getElementById('swap-requester-select');
     select.innerHTML = students.map(s =>
-      `<option value="${s.id}">${this.escapeHtml(s.name)}</option>`
+      `<option value="${this.escapeHtml(s.id)}">${this.escapeHtml(s.name)}</option>`
     ).join('');
     await this.loadShiftsForRequester();
     document.getElementById('swap-reason-input').value = '';
@@ -604,7 +624,7 @@ class SwapsView {
       this._offerRequestId = requestId;
       const list = document.getElementById('swap-offer-student-list');
       list.innerHTML = students.map(s => `
-        <button type="button" class="student-picker-item" data-student-id="${s.id}">
+        <button type="button" class="student-picker-item" data-student-id="${this.escapeHtml(s.id)}">
           <span class="sq" style="background:${s.color}"></span>
           ${this.escapeHtml(s.name)}
         </button>`).join('');

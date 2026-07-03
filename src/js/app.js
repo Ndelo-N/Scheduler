@@ -487,13 +487,14 @@ class ShiftSchedulerApp {
     return new Promise(resolve => {
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay dynamic-modal confirm-dialog-overlay';
+      const esc = window.SchedulerUtils.escapeHtml; // F-17: escape at the sink
       overlay.innerHTML = `
         <div class="modal-content confirm-dialog">
-          <div class="modal-header"><h2>${title}</h2></div>
-          <div class="modal-body"><p>${message}</p></div>
+          <div class="modal-header"><h2>${esc(title)}</h2></div>
+          <div class="modal-body"><p>${esc(message)}</p></div>
           <div class="modal-footer confirm-dialog-actions">
-            <button type="button" class="btn btn-secondary" data-action="cancel">${cancelLabel}</button>
-            <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-action="confirm">${confirmLabel}</button>
+            <button type="button" class="btn btn-secondary" data-action="cancel">${esc(cancelLabel)}</button>
+            <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-action="confirm">${esc(confirmLabel)}</button>
           </div>
         </div>`;
 
@@ -591,10 +592,11 @@ class ShiftSchedulerApp {
     toast.className = `toast ${type}`;
     
     const icon = this.getToastIcon(type);
+    const esc = window.SchedulerUtils.escapeHtml; // F-17: escape at the sink
     const content = `
       <span class="toast-icon">${icon}</span>
-      <span class="toast-message">${message}</span>
-      ${options.action ? `<button class="btn btn-sm btn-primary toast-action">${options.action}</button>` : ''}
+      <span class="toast-message">${esc(message)}</span>
+      ${options.action ? `<button class="btn btn-sm btn-primary toast-action">${esc(options.action)}</button>` : ''}
       <button class="toast-close">×</button>
     `;
     

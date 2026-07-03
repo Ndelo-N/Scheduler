@@ -3,16 +3,19 @@
  * securityHeaders.js — response security headers. Hand-rolled (no dependency);
  * `helmet` is a drop-in alternative if you prefer.
  *
- * The CSP is a STARTER: it locks the dangerous directives (object-src,
- * frame-ancestors, base-uri) and pins everything to same-origin, but still allows
- * 'unsafe-inline' for scripts/styles so the current PWA — which has inline
- * scripts in index.html — keeps working. HARDENING PATH: externalize those inline
- * scripts/styles, then remove 'unsafe-inline' from script-src/style-src.
+ * The CSP locks the dangerous directives (object-src, frame-ancestors, base-uri)
+ * and pins everything to same-origin. script-src is 'self' only — no
+ * 'unsafe-inline' — since all inline scripts and on* handlers have been
+ * externalized/refactored to addEventListener (Phase 3 / F-11). style-src still
+ * allows 'unsafe-inline' because the PWA applies dynamic per-item colors via
+ * inline style attributes; CSS injection is low-risk with script-src locked.
+ * FURTHER HARDENING: move dynamic colors to CSS custom properties / classes,
+ * then drop 'unsafe-inline' from style-src too (see F-16).
  */
 
 const DEFAULT_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",              // TODO: drop 'unsafe-inline' after externalizing inline scripts
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data:",

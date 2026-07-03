@@ -74,6 +74,25 @@ const SchedulerUtils = {
     let h = 0;
     for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i) * 17) % palette.length;
     return palette[h];
+  },
+
+  /**
+   * Escape a value for safe interpolation into HTML — element text AND
+   * attribute contexts (quotes are escaped, unlike the DOM textContent trick).
+   * Canonical XSS-safe escaper for the whole app (Phase 3 / F-04).
+   */
+  escapeHtml(value) {
+    const s = value === null || value === undefined ? '' : String(value);
+    return s.replace(/[&<>"']/g, (ch) => {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return ch;
+      }
+    });
   }
 };
 
