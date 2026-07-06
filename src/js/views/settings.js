@@ -13,6 +13,15 @@ class SettingsView {
     this.container = document.getElementById('settings-view');
     if (!this.container) return;
 
+    if (!this.app.can('view.settings')) {
+      this.container.innerHTML = `
+        <div class="access-denied">
+          <h2>Settings</h2>
+          <p>Settings are available to Team-Leads and admins only.</p>
+        </div>`;
+      return;
+    }
+
     const oh = this.app.state.operationalHours;
     const templates = this.app.state.templates;
 
@@ -171,11 +180,87 @@ class SettingsView {
             Enable 3-month view (experimental)
           </label>
         </section>
+
+        ${this.app.can('settings.featureAccess') ? `
+        <section class="config-card config-card-wide feature-access-card" data-feature="settings.featureAccess">
+          <h2>Feature access</h2>
+          <p class="config-help">Control which features Student and Team-Lead roles can see. Admins always have full access. Changes are saved to the database and apply for all users on next load.</p>
+          <div id="feature-access-matrix" class="feature-access-matrix"></div>
+          <div class="form-row" style="margin-top: 1rem;">
+            <button type="button" class="btn btn-secondary" id="feature-access-reset-btn">Reset to defaults</button>
+          </div>
+        </section>
+        ` : ''}
       </div>
     `;
 
     this.renderLists();
+    if (this.app.can('settings.featureAccess')) this.renderFeatureAccessMatrix();
     this.setupEventListeners();
+  }
+
+  renderFeatureAccessMatrix() {
+    const host = document.getElementById('feature-access-matrix');
+    if (!host || !this.app.access) return;
+
+    const groups = this.app.access.groupedConfigurableFeatures();
+    const roles = ['student', 'team-lead'];
+    const roleLabels = { student: 'Student', 'team-lead': 'Team-Lead' };
+
+    let html = '';
+    for (const [group, features] of Object.entries(groups)) {
+      html += `<div class="feature-access-group"><h3>${this.escape(group)}</h3>`;
+      html += `<table class="feature-access-table"><thead><tr><th>Feature</th>`;
+      for (const role of roles) {
+        html += `<th>${roleLabels[role]}</th>`;
+      }
+      html += `<th>Admin</th></tr></thead><tbody>`;
+      for (const f of features) {
+        html += `<tr data-feature-row="${f.id}"><td>${this.escape(f.label)}</td>`;
+        for (const role of roles) {
+          const checked = this.app.access.can(f.id, role) ? 'checked' : '';
+          html += `<td><input type="checkbox" class="feature-access-toggle" data-feature-id="${f.id}" data-role="${role}" ${checked}></td>`;
+        }
+        html += `<td><input type="checkbox" checked disabled title="Admins always have access"></td></tr>`;
+      }
+      html += '</tbody></table></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  async onFeatureAccessToggle(input) {
+    const featureId = input.dataset.featureId;
+    const role = input.dataset.role;
+    if (!this.app.access) return;
+    const prev = this.app.access.can(featureId, role);
+    this.app.access.setOverride(role, featureId, input.checked);
+    try {
+      await this.app.access.save();
+      await this.app.applyAccessControl();
+      this.app.showToast('Feature access updated (shared for all users)', 'success');
+    } catch (err) {
+      this.app.access.setOverride(role, featureId, prev);
+      input.checked = prev;
+      this.app.showToast(err.message || 'Could not save feature access', 'error');
+    }
+  }
+
+  async resetFeatureAccess() {
+    if (!this.app.access) return;
+    const ok = await this.app.confirmDialog(
+      'Reset all feature access overrides to the built-in defaults? This applies for all users.',
+      { title: 'Reset feature access', confirmLabel: 'Reset' }
+    );
+    if (!ok) return;
+    this.app.access.resetOverrides();
+    try {
+      await this.app.access.save();
+      this.renderFeatureAccessMatrix();
+      await this.app.applyAccessControl();
+      this.app.showToast('Feature access reset to defaults', 'info');
+    } catch (err) {
+      this.app.showToast(err.message || 'Could not reset feature access', 'error');
+    }
   }
 
   renderLists() {
@@ -440,6 +525,16 @@ class SettingsView {
 
     document.getElementById('three-month-toggle').addEventListener('change', (e) => {
       this.setThreeMonthView(e.target.checked);
+    });
+
+    document.getElementById('feature-access-reset-btn')?.addEventListener('click', () => {
+      this.resetFeatureAccess();
+    });
+
+    this.container.addEventListener('change', (e) => {
+      if (e.target.classList.contains('feature-access-toggle')) {
+        this.onFeatureAccessToggle(e.target);
+      }
     });
 
     this.container.addEventListener('click', (e) => {

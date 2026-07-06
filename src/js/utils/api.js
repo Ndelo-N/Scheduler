@@ -194,6 +194,16 @@ class APIClient {
     return this.post('/auth/change-password', { currentPassword, newPassword }, { skipAuthHandler: true });
   }
 
+  /** Shared feature-access overrides (all authenticated users). */
+  async getFeatureAccess() {
+    return this.get('/feature-access');
+  }
+
+  /** Admin-only: persist feature-access overrides for the whole lab. */
+  async putFeatureAccess(overrides) {
+    return this.put('/admin/feature-access', { overrides });
+  }
+
   // UI-agnostic notifications: the auth gate listens for these window events and
   // shows the login / change-password screen. api.js never touches the DOM tree.
   handleUnauthorized() {

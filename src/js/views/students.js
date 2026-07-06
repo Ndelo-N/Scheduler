@@ -19,6 +19,15 @@ class StudentsView {
     this.container = document.getElementById('students-view');
     if (!this.container) return;
 
+    if (!this.app.can('view.students')) {
+      this.container.innerHTML = `
+        <div class="access-denied">
+          <h2>Students</h2>
+          <p>Student management is available to Team-Leads and admins only.</p>
+        </div>`;
+      return;
+    }
+
     this.container.innerHTML = `
       <div class="students-header">
         <h1>Students & Contracts</h1>

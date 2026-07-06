@@ -1161,7 +1161,7 @@ body {
   gap: 0.5rem;
 }
 
-/* Auth gate (Rev1) */
+/* Auth gate (Rev1) — scoped colors so panel text is readable on the dark app theme */
 .auth-gate {
   position: fixed;
   inset: 0;
@@ -1169,8 +1169,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg, #f3f4f6);
+  background: var(--bg-overlay);
   padding: 1rem;
+  color: var(--text-primary);
 }
 .auth-gate[hidden] {
   display: none !important;
@@ -1179,35 +1180,126 @@ body {
   width: 100%;
   max-width: 22rem;
   padding: 1.5rem;
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-surface, #fff);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border-radius: var(--border-radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xl);
+  color: var(--text-primary);
 }
 .auth-panel h2 {
   margin: 0 0 1rem;
   font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 .auth-panel label {
   display: block;
   margin-bottom: 0.75rem;
   font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 .auth-panel input {
   display: block;
   width: 100%;
   margin-top: 0.25rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.auth-panel input::placeholder {
+  color: var(--text-muted);
+}
+.auth-panel input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-color: var(--primary);
 }
 .auth-panel button {
   width: 100%;
   margin-top: 0.5rem;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius);
+  background: var(--primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.auth-panel button:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+.auth-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .auth-error {
-  color: var(--color-danger, #dc2626);
+  color: var(--error);
   font-size: 0.875rem;
   min-height: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.access-hidden,
+[hidden].access-hidden {
+  display: none !important;
+}
+
+.access-denied {
+  max-width: 28rem;
+  margin: 2rem auto;
+  padding: 2rem;
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  color: var(--text-secondary);
+}
+.access-denied h2 {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.feature-access-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.feature-access-group h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+.feature-access-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.feature-access-table th,
+.feature-access-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+.feature-access-table th:not(:first-child),
+.feature-access-table td:not(:first-child) {
+  text-align: center;
+  width: 5.5rem;
+}
+.feature-access-table input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+.feature-access-table input[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Header user menu */

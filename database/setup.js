@@ -109,19 +109,19 @@ class DatabaseSetup {
         true
       ]);
       
-      // Create sample supervisor
-      const supervisorPassword = await this.hashPassword('supervisor123');
+      // Create sample team-lead
+      const teamLeadPassword = await this.hashPassword('teamlead123');
       await client.query(`
         INSERT INTO users (id, email, password_hash, role, first_name, last_name, is_active, email_verified)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (email) DO NOTHING
       `, [
         '00000000-0000-0000-0000-000000000002',
-        'supervisor@up.ac.za',
-        supervisorPassword,
-        'supervisor',
+        'teamlead@up.ac.za',
+        teamLeadPassword,
+        'team-lead',
         'Jane',
-        'Supervisor',
+        'Team-Lead',
         true,
         true
       ]);

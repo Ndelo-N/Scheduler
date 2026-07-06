@@ -20,6 +20,15 @@ class SwapsView {
     this.container = document.getElementById('swaps-view');
     if (!this.container) return;
 
+    if (!this.app.can('view.swaps')) {
+      this.container.innerHTML = `
+        <div class="access-denied">
+          <h2>Swaps</h2>
+          <p>You do not have access to shift swaps.</p>
+        </div>`;
+      return;
+    }
+
     this.container.innerHTML = `
       <div class="swaps-header">
         <h1>Shift Swaps</h1>

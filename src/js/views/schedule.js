@@ -24,6 +24,15 @@ class ScheduleView {
     this.container = document.getElementById('schedule-view');
     if (!this.container) return;
 
+    if (!this.app.can('view.schedule')) {
+      this.container.innerHTML = `
+        <div class="access-denied">
+          <h2>Schedule</h2>
+          <p>You do not have access to the schedule. Contact your Team-Lead or admin.</p>
+        </div>`;
+      return;
+    }
+
     this.container.innerHTML = `
       <div class="schedule-header">
         <div class="schedule-controls">

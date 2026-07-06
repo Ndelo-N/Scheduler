@@ -50,7 +50,7 @@ async function attemptLogin(pool, { uNumber, password }, { sessionTtlMs } = {}) 
     const session = await sessionStore.createSession(pool, user.id, { ttlMs: sessionTtlMs });
     return {
       ok: true,
-      user: { id: user.id, uNumber: user.student_number, role: user.role },
+      user: { id: user.id, uNumber: user.student_number, role: user.role === 'supervisor' ? 'team-lead' : user.role },
       mustChangePassword: user.must_change_password === true,
       session
     };

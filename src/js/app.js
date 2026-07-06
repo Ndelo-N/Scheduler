@@ -71,9 +71,15 @@ class ShiftSchedulerApp {
   async bootApp(user) {
     try {
       if (user) this.currentUser = user;
+      this.access = new AccessControl(this);
+      await this.access.load();
+      if (this.currentUser?.role && typeof normalizeRole === 'function') {
+        this.currentUser.role = normalizeRole(this.currentUser.role);
+      }
       this.setupEventListeners();
       this.updateUserMenu();
       await this.initViews();
+      await this.applyAccessControl();
       this.showAssessmentReminders();
       this.hideLoadingScreen();
       const appEl = document.getElementById('app');
@@ -83,6 +89,25 @@ class ShiftSchedulerApp {
       console.error('❌ Failed to boot app:', error);
       this.showError('Failed to initialize application');
     }
+  }
+
+  /** @param {string} featureId */
+  can(featureId) {
+    return this.access ? this.access.can(featureId) : true;
+  }
+
+  async applyAccessControl() {
+    if (!this.access) return;
+    this.access.applyNavigation();
+    if (!this.access.canAccessView(this.currentView)) {
+      this.currentView = this.access.getDefaultView();
+      await this.navigateToView(this.currentView);
+      return;
+    }
+    if (this.views[this.currentView]) {
+      await this.views[this.currentView].init();
+    }
+    this.access.applyVisibility(document);
   }
 
   showLoadingScreen() {
@@ -232,7 +257,10 @@ class ShiftSchedulerApp {
 
     const user = this.currentUser;
     const displayName = user.name || user.uNumber || 'Signed in';
-    if (nameEl) nameEl.textContent = displayName;
+    const roleLabel = typeof normalizeRole === 'function'
+      ? { student: 'Student', 'team-lead': 'Team-Lead', admin: 'Admin' }[normalizeRole(user.role)] || user.role
+      : user.role;
+    if (nameEl) nameEl.textContent = `${displayName} (${roleLabel})`;
     if (logoutBtn) logoutBtn.hidden = false;
     if (avatarEl) {
       const initials = this.userInitials(displayName);
@@ -300,6 +328,11 @@ class ShiftSchedulerApp {
   }
 
   async navigateToView(viewName) {
+    if (this.access && !this.access.canAccessView(viewName)) {
+      this.showToast('You do not have access to that section', 'error');
+      viewName = this.access.getDefaultView();
+    }
+
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.remove('active');
@@ -326,6 +359,7 @@ class ShiftSchedulerApp {
     }
 
     this.currentView = viewName;
+    if (this.access) this.access.applyVisibility(document);
     await this.saveAppState();
   }
 

@@ -11,7 +11,7 @@
  * Re-running for an existing email resets that account's password (a reset flow).
  *
  * Usage:
- *   node provision.js <uNumber|-> <email> <student|supervisor|admin> "First Last"
+ *   node provision.js <uNumber|-> <email> <student|team-lead|admin> "First Last"
  *   node provision.js u12345678 s12345678@up.ac.za student "Thabo Mokoena"
  *   node provision.js -          admin2@up.ac.za    admin   "Second Admin"
  *
@@ -20,9 +20,10 @@
  */
 
 const crypto = require('crypto');
+require('dotenv').config();
 const passwordHasher = require('./server/security/passwordHasher');
 
-const VALID_ROLES = new Set(['student', 'supervisor', 'admin']);
+const VALID_ROLES = new Set(['student', 'team-lead', 'admin', 'supervisor']);
 
 /** ~16 url-safe chars (~96 bits entropy). No ambiguous-character shaping needed
  *  because the user must change it on first login anyway. */
@@ -41,7 +42,8 @@ function normalizeUNumber(u) {
  */
 async function provisionAccount(pool, { uNumber, email, role, firstName, lastName }) {
   if (!email || typeof email !== 'string') throw new Error('email is required');
-  if (!VALID_ROLES.has(role)) throw new Error(`role must be one of: ${[...VALID_ROLES].join(', ')}`);
+  if (!VALID_ROLES.has(role)) throw new Error(`role must be one of: student, team-lead, admin`);
+  const normalizedRole = role === 'supervisor' ? 'team-lead' : role;
   const u = normalizeUNumber(uNumber);
   if (role === 'student' && !u) throw new Error('student accounts require a u-Number');
 
@@ -60,7 +62,7 @@ async function provisionAccount(pool, { uNumber, email, role, firstName, lastNam
        must_change_password = true,
        failed_login_attempts = 0,
        locked_until         = NULL`,
-    [email, passwordHash, role, firstName || '', lastName || '', u || null]
+    [email, passwordHash, normalizedRole, firstName || '', lastName || '', u || null]
   );
 
   return tempPassword;
@@ -82,7 +84,7 @@ if (require.main === module) {
 
   const [, , uArg, email, role, name] = process.argv;
   if (!email || !role) {
-    console.log('Usage: node provision.js <uNumber|-> <email> <student|supervisor|admin> "First Last"');
+    console.log('Usage: node provision.js <uNumber|-> <email> <student|team-lead|admin> "First Last"');
     process.exit(1);
   }
   const [firstName, ...rest] = String(name || '').trim().split(' ');
@@ -90,8 +92,9 @@ if (require.main === module) {
 
   provisionAccount(pool, { uNumber: uArg === '-' ? '' : uArg, email, role, firstName, lastName })
     .then((temp) => {
+      const storedRole = role === 'supervisor' ? 'team-lead' : role;
       const uShown = role === 'student' ? ` (${normalizeUNumber(uArg)})` : '';
-      console.log(`\n✅ Provisioned ${email}${uShown} as ${role}`);
+      console.log(`\n✅ Provisioned ${email}${uShown} as ${storedRole}`);
       console.log(`   Temporary password: ${temp}`);
       console.log('   The user must change it on first login.\n');
     })

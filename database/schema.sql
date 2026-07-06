@@ -13,7 +13,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('student', 'supervisor', 'admin')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('student', 'team-lead', 'admin')),
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     avatar_url TEXT,
@@ -432,7 +432,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
 --   2. Point DB_USER/DATABASE_URL at scheduler_app (never postgres).
 --   3. App DB layer: on every request transaction, inject identity:
 --        SET LOCAL app.user_id  = '<uuid of authenticated user>';
---        SET LOCAL app.user_role = '<student|supervisor|admin>';
+--        SET LOCAL app.user_role = '<student|team-lead|admin>';
 --      (SET LOCAL scopes to the transaction — mandatory with a connection pool.)
 --   4. Run tests/rls.smoke.sql against a staging DB.
 -- FAIL-CLOSED PROPERTY: if the app forgets to SET LOCAL, current_user_id()
@@ -469,43 +469,43 @@ ALTER TABLE student_availability ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_test_dates ENABLE ROW LEVEL SECURITY;
 
--- Own-row access for students; admin/supervisor see all (mirrors the
--- app-layer requireSelfOrRole('admin','supervisor') contract).
+-- Own-row access for students; team-lead/admin see all (mirrors the
+-- app-layer requireSelfOrRole('admin','team-lead') contract).
 -- WITH CHECK mirrors USING so users cannot INSERT/UPDATE rows they could not read.
 DROP POLICY IF EXISTS users_own_data ON users;
 CREATE POLICY users_own_data ON users FOR ALL TO authenticated
-  USING (id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 DROP POLICY IF EXISTS sessions_own_data ON user_sessions;
 CREATE POLICY sessions_own_data ON user_sessions FOR ALL TO authenticated
-  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 DROP POLICY IF EXISTS availability_own_data ON student_availability;
 CREATE POLICY availability_own_data ON student_availability FOR ALL TO authenticated
-  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 DROP POLICY IF EXISTS contracts_own_data ON student_contracts;
 CREATE POLICY contracts_own_data ON student_contracts FOR ALL TO authenticated
-  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 DROP POLICY IF EXISTS test_dates_own_data ON student_test_dates;
 CREATE POLICY test_dates_own_data ON student_test_dates FOR ALL TO authenticated
-  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS notif_prefs_own_data ON notification_preferences;
 CREATE POLICY notif_prefs_own_data ON notification_preferences FOR ALL TO authenticated
-  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'))
-  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'supervisor'));
+  USING (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'))
+  WITH CHECK (user_id = current_user_id() OR current_user_role() IN ('admin', 'team-lead'));
 
 -- ===== COMMENTS =====
 
-COMMENT ON TABLE users IS 'User accounts for students, supervisors, and admins';
+COMMENT ON TABLE users IS 'User accounts for students, team-leads, and admins';
 COMMENT ON TABLE schedules IS 'Monthly schedules for each institution';
 COMMENT ON TABLE shifts IS 'Individual shifts within schedules';
 COMMENT ON TABLE shift_assignments IS 'Student assignments to shifts';

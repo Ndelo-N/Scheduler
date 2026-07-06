@@ -58,7 +58,7 @@ async function validateSession(pool, token, { slideMs = DEFAULT_TTL_MS } = {}) {
   return {
     id: row.id,
     uNumber: row.student_number,
-    role: row.role,
+    role: row.role === 'supervisor' ? 'team-lead' : row.role,
     firstName: row.first_name,
     lastName: row.last_name,
     mustChangePassword: row.must_change_password === true

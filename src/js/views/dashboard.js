@@ -31,7 +31,7 @@ class DashboardView {
       </div>
 
       <div class="dashboard-grid">
-        <div class="dashboard-card today-shifts">
+        <div class="dashboard-card today-shifts" data-feature="dashboard.todaysShifts">
           <div class="card-header">
             <h2>Today's Shifts</h2>
             <span class="card-badge" id="today-shifts-count">0</span>
@@ -41,7 +41,7 @@ class DashboardView {
           </div>
         </div>
 
-        <div class="dashboard-card pending-swaps">
+        <div class="dashboard-card pending-swaps" data-feature="dashboard.pendingSwaps">
           <div class="card-header">
             <h2>Pending Swaps</h2>
             <span class="card-badge" id="pending-swaps-count">0</span>
@@ -51,7 +51,7 @@ class DashboardView {
           </div>
         </div>
 
-        <div class="dashboard-card quick-stats">
+        <div class="dashboard-card quick-stats" data-feature="dashboard.quickStats">
           <div class="card-header">
             <h2>Quick Stats</h2>
           </div>
@@ -71,7 +71,7 @@ class DashboardView {
           </div>
         </div>
 
-        <div class="dashboard-card recent-activity">
+        <div class="dashboard-card recent-activity" data-feature="dashboard.recentActivity">
           <div class="card-header">
             <h2>Recent Activity</h2>
           </div>
@@ -82,20 +82,22 @@ class DashboardView {
       </div>
 
       <div class="dashboard-actions">
-        <button class="btn btn-primary" id="quick-schedule-btn">
+        <button class="btn btn-primary" id="quick-schedule-btn" data-feature="dashboard.quickSchedule">
           <i class="icon-calendar"></i>
           Quick Schedule
         </button>
-        <button class="btn btn-secondary" id="view-all-swaps-btn">
+        <button class="btn btn-secondary" id="view-all-swaps-btn" data-feature="dashboard.viewAllSwaps">
           <i class="icon-swap"></i>
           View All Swaps
         </button>
-        <button class="btn btn-secondary" id="export-schedule-btn">
+        <button class="btn btn-secondary" id="export-schedule-btn" data-feature="dashboard.exportSchedule">
           <i class="icon-download"></i>
           Export Schedule
         </button>
       </div>
     `;
+
+    if (this.app.access) this.app.access.applyVisibility(this.container);
 
     await this.loadData();
     this.setupEventListeners();
@@ -104,18 +106,18 @@ class DashboardView {
 
   async loadData() {
     try {
-      // Load today's shifts
-      await this.loadTodayShifts();
-      
-      // Load pending swaps
-      await this.loadPendingSwaps();
-      
-      // Load quick stats
-      await this.loadQuickStats();
-      
-      // Load recent activity
-      await this.loadRecentActivity();
-      
+      if (this.app.can('dashboard.todaysShifts')) {
+        await this.loadTodayShifts();
+      }
+      if (this.app.can('dashboard.pendingSwaps')) {
+        await this.loadPendingSwaps();
+      }
+      if (this.app.can('dashboard.quickStats')) {
+        await this.loadQuickStats();
+      }
+      if (this.app.can('dashboard.recentActivity')) {
+        await this.loadRecentActivity();
+      }
     } catch (error) {
       console.error('❌ Failed to load dashboard data:', error);
       this.showError('Failed to load dashboard data');
@@ -288,18 +290,13 @@ class DashboardView {
   }
 
   setupEventListeners() {
-    // Quick schedule button
-    document.getElementById('quick-schedule-btn').addEventListener('click', () => {
+    document.getElementById('quick-schedule-btn')?.addEventListener('click', () => {
       window.app.navigateToView('schedule');
     });
-
-    // View all swaps button
-    document.getElementById('view-all-swaps-btn').addEventListener('click', () => {
+    document.getElementById('view-all-swaps-btn')?.addEventListener('click', () => {
       window.app.navigateToView('swaps');
     });
-
-    // Export schedule button
-    document.getElementById('export-schedule-btn').addEventListener('click', () => {
+    document.getElementById('export-schedule-btn')?.addEventListener('click', () => {
       this.exportSchedule();
     });
   }

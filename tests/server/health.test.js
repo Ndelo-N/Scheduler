@@ -49,4 +49,9 @@ describe('Rev1 server — health + auth routes', () => {
     const res = await request(app).get('/api/unknown-route');
     expect(res.status).toBe(401);
   });
+
+  test('GET /api/feature-access requires auth (401 without cookie)', async () => {
+    const res = await request(app).get('/api/feature-access');
+    expect(res.status).toBe(401);
+  });
 });

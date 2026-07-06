@@ -18,6 +18,15 @@ class AnalyticsView {
     this.container = document.getElementById('analytics-view');
     if (!this.container) return;
 
+    if (!this.app.can('view.analytics')) {
+      this.container.innerHTML = `
+        <div class="access-denied">
+          <h2>Analytics</h2>
+          <p>Analytics are available to Team-Leads and admins only.</p>
+        </div>`;
+      return;
+    }
+
     this.container.innerHTML = `
       <div class="analytics-header">
         <h1>Analytics</h1>

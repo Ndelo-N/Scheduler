@@ -10,6 +10,7 @@
 
 const express = require('express');
 const { requireRole, requireSelfOrRole } = require('../security/authMiddleware');
+const { loadOverrides, saveOverrides } = require('../security/featureAccess');
 
 function createProtectedRouter(pool) {
   const router = express.Router();
@@ -20,7 +21,7 @@ function createProtectedRouter(pool) {
   });
 
   // Object-level: a student may read only THEIR OWN ledger; admin/supervisor any.
-  router.get('/students/:uNumber/ledger', requireSelfOrRole('admin', 'supervisor'), (req, res) => {
+  router.get('/students/:uNumber/ledger', requireSelfOrRole('admin', 'team-lead'), (req, res) => {
     res.json({ ok: true, uNumber: req.params.uNumber, ledger: `‹ledger for ${req.params.uNumber}›` });
   });
 
@@ -67,6 +68,31 @@ function createProtectedRouter(pool) {
   };
   router.put('/notifications/preferences', upsertPreferences);
   router.post('/notifications/preferences', upsertPreferences);
+
+  // Feature access — shared across all clients (read: any authenticated user).
+  router.get('/feature-access', async (req, res) => {
+    try {
+      const config = await loadOverrides(pool);
+      res.json(config);
+    } catch (e) {
+      console.error('get feature-access error:', e.message);
+      res.status(500).json({ error: 'Could not load feature access' });
+    }
+  });
+
+  router.put('/admin/feature-access', requireRole('admin'), async (req, res) => {
+    const { overrides } = req.body || {};
+    if (overrides !== undefined && (typeof overrides !== 'object' || Array.isArray(overrides))) {
+      return res.status(400).json({ error: 'overrides must be an object' });
+    }
+    try {
+      const config = await saveOverrides(pool, overrides || {}, req.user.id);
+      res.json(config);
+    } catch (e) {
+      console.error('put feature-access error:', e.message);
+      res.status(500).json({ error: 'Could not save feature access' });
+    }
+  });
 
   return router;
 }
