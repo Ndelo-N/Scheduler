@@ -14,6 +14,8 @@ class ScheduleView {
     this.selectedShift = null;
     this._modalShift = null;
     this._swapContext = { date: null, start: null, fromStudentId: null };
+    this.viewMode = 'month';
+    this.weekStartDate = null;
   }
 
   async init() {
@@ -75,6 +77,10 @@ class ScheduleView {
           <button class="btn btn-secondary" id="load-state-btn" title="Ctrl+O" data-feature="schedule.loadState">
             Load
           </button>
+          <button class="btn btn-secondary" id="toggle-view-mode-btn" title="Switch between month and week view" data-feature="schedule.weekView">
+            <i class="icon-calendar"></i>
+            <span id="view-mode-label">Week view</span>
+          </button>
           <button class="btn btn-secondary" id="toggle-three-month-btn" title="Ctrl+T" data-feature="schedule.threeMonth">
             <i class="icon-calendar"></i>
             <span id="three-month-label">3-Month View</span>
@@ -89,25 +95,27 @@ class ScheduleView {
       <div id="assessment-review-banner" class="assessment-review-banner" style="display:none"></div>
 
       <div class="schedule-content">
-        <div class="schedule-sidebar">
-          <div class="sidebar-section" data-feature="schedule.sidebar.students">
-            <h3>Students</h3>
-            <div class="student-list" id="student-list">
-              <div class="loading">Loading...</div>
+        <div class="schedule-main">
+          <div class="schedule-sidebar">
+            <div class="sidebar-section" data-feature="schedule.sidebar.students">
+              <h3>Students</h3>
+              <div class="student-list" id="student-list">
+                <div class="loading">Loading...</div>
+              </div>
+            </div>
+            
+            <div class="sidebar-section" data-feature="schedule.sidebar.templates">
+              <h3>Shift Templates</h3>
+              <div class="template-list" id="template-list">
+                <div class="loading">Loading...</div>
+              </div>
             </div>
           </div>
-          
-          <div class="sidebar-section" data-feature="schedule.sidebar.templates">
-            <h3>Shift Templates</h3>
-            <div class="template-list" id="template-list">
-              <div class="loading">Loading...</div>
-            </div>
-          </div>
-        </div>
 
-        <div class="schedule-calendar" data-feature="schedule.calendar">
-          <div class="calendar-grid" id="calendar-grid">
-            <div class="loading">Loading...</div>
+          <div class="schedule-calendar" data-feature="schedule.calendar">
+            <div class="calendar-grid" id="calendar-grid">
+              <div class="loading">Loading...</div>
+            </div>
           </div>
         </div>
 
@@ -194,12 +202,115 @@ class ScheduleView {
     this.setupEventListeners();
     if (this.app.access) this.app.access.applyVisibility(this.container);
     this.syncThreeMonthUi();
+    this.syncViewModeUi();
     this.renderCalendar();
     this.renderSummary();
   }
 
   isThreeMonthView() {
     return !!this.app.state.threeMonthView;
+  }
+
+  isWeekView() {
+    return this.viewMode === 'week' && !this.isThreeMonthView();
+  }
+
+  getSundayOfWeek(dateStr) {
+    const d = new Date(`${dateStr}T12:00:00`);
+    d.setDate(d.getDate() - d.getDay());
+    return SchedulerUtils.localDateStr(d);
+  }
+
+  getMonthWeekStarts(year = this.currentYear, month = this.currentMonth) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const firstSunday = this.getSundayOfWeek(SchedulerUtils.dateISO(year, month, 1));
+    const lastSunday = this.getSundayOfWeek(SchedulerUtils.dateISO(year, month, lastDay));
+    const weeks = [];
+    const cursor = new Date(`${firstSunday}T12:00:00`);
+    const end = new Date(`${lastSunday}T12:00:00`);
+    while (cursor <= end) {
+      weeks.push(SchedulerUtils.localDateStr(cursor));
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return weeks;
+  }
+
+  getWeekIndexInMonth(weekStart = this.weekStartDate) {
+    return this.getMonthWeekStarts().indexOf(weekStart);
+  }
+
+  normalizeWeekStartForMonth() {
+    const weeks = this.getMonthWeekStarts();
+    if (!weeks.length) return;
+    if (weeks.includes(this.weekStartDate)) return;
+    this.weekStartDate = weeks[0];
+  }
+
+  getWeekDates() {
+    const start = this.weekStartDate || this.getSundayOfWeek(
+      SchedulerUtils.localDateStr(new Date(this.currentYear, this.currentMonth, 1))
+    );
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(`${start}T12:00:00`);
+      d.setDate(d.getDate() + i);
+      dates.push(SchedulerUtils.localDateStr(d));
+    }
+    return dates;
+  }
+
+  getDateForWeekDay(dayIndex) {
+    return this.getWeekDates()[dayIndex];
+  }
+
+  getPeriodDisplayLabel() {
+    if (this.isWeekView()) {
+      const dates = this.getWeekDates();
+      const start = new Date(`${dates[0]}T12:00:00`);
+      const end = new Date(`${dates[6]}T12:00:00`);
+      const fmt = (dt) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const year = end.getFullYear();
+      let weekRange;
+      if (start.getMonth() === end.getMonth()) {
+        weekRange = `${fmt(start)} – ${end.getDate()}, ${year}`;
+      } else {
+        weekRange = `${fmt(start)} – ${fmt(end)}, ${year}`;
+      }
+      const weekIdx = this.getWeekIndexInMonth();
+      const weekLabel = weekIdx >= 0 ? ` · Week ${weekIdx + 1} of ${this.getMonthYearDisplay()}` : ` · ${this.getMonthYearDisplay()}`;
+      return `${weekRange}${weekLabel}`;
+    }
+    return this.getMonthYearDisplay();
+  }
+
+  syncPeriodNavUi() {
+    const prevBtn = document.getElementById('prev-month-btn');
+    const nextBtn = document.getElementById('next-month-btn');
+    if (!prevBtn || !nextBtn) return;
+    if (this.isWeekView()) {
+      const weeks = this.getMonthWeekStarts();
+      const idx = this.getWeekIndexInMonth();
+      prevBtn.disabled = idx <= 0;
+      nextBtn.disabled = idx < 0 || idx >= weeks.length - 1;
+    } else {
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
+    }
+  }
+
+  syncViewModeUi() {
+    const btn = document.getElementById('toggle-view-mode-btn');
+    const label = document.getElementById('view-mode-label');
+    if (!btn || !label) return;
+    if (this.isWeekView()) {
+      btn.classList.add('btn-primary');
+      btn.classList.remove('btn-secondary');
+      label.textContent = 'Month view';
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+      label.textContent = 'Week view';
+    }
   }
 
   getThreeMonthRange() {
@@ -234,7 +345,7 @@ class ScheduleView {
     try {
       this.currentYear = this.app.state.year;
       this.currentMonth = this.app.state.month;
-      document.getElementById('month-year-display').textContent = this.getMonthYearDisplay();
+      document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
 
       await this.loadStudents();
       
@@ -315,6 +426,19 @@ class ScheduleView {
           const monthShifts = await this.getShiftsForMonth(month, year);
           this.shifts.push(...monthShifts);
         }
+      } else if (this.isWeekView()) {
+        const weekDates = new Set(this.getWeekDates());
+        const monthKeys = new Set();
+        for (const dateStr of weekDates) {
+          const d = new Date(`${dateStr}T12:00:00`);
+          monthKeys.add(`${d.getFullYear()}-${d.getMonth()}`);
+        }
+        this.shifts = [];
+        for (const key of monthKeys) {
+          const [year, month] = key.split('-').map(Number);
+          const monthShifts = await this.getShiftsForMonth(month, year);
+          this.shifts.push(...monthShifts.filter(s => weekDates.has(s.date)));
+        }
       } else {
         this.shifts = await this.getShiftsForMonth(this.currentMonth, this.currentYear);
       }
@@ -342,6 +466,7 @@ class ScheduleView {
     }
 
     const engine = this.buildEngineContext();
+    const admin = this.isAdminMode();
 
     studentList.innerHTML = this.students.map(student => {
       let indicator = '';
@@ -354,7 +479,7 @@ class ScheduleView {
           this.selectedShift.end,
           engine.getAvailability(student.id)
         );
-        indicator = can ? ' ✅' : (avail ? ' 🔒' : ' 🔒');
+        indicator = admin ? ' 🔧' : (can ? ' ✅' : (avail ? ' 🔒' : ' 🔒'));
       }
       return `
       <div class="student-item" data-student-id="${student.id}" draggable="true">
@@ -413,13 +538,23 @@ class ScheduleView {
 
     if (this.isThreeMonthView()) {
       this.renderThreeMonthCalendar(calendarGrid);
-    } else {
+    } else if (this.isWeekView()) {
       this.renderWeekGridCalendar(calendarGrid);
+    } else {
+      this.renderSingleMonthCalendar(calendarGrid);
     }
 
+    this.setupMonthDayNavigation();
     this.setupDragAndDrop();
     this.setupShiftInteractions();
+    this.syncPeriodNavUi();
     this.renderSummary();
+  }
+
+  renderSingleMonthCalendar(calendarGrid) {
+    calendarGrid.innerHTML = '';
+    calendarGrid.className = 'calendar-grid calendar-grid-month';
+    this.renderMonthDayGrid(calendarGrid, this.currentYear, this.currentMonth);
   }
 
   renderWeekGridCalendar(calendarGrid) {
@@ -428,7 +563,7 @@ class ScheduleView {
     headerRow.innerHTML = `
       <div class="time-column">Time</div>
       ${this.getDaysOfWeek().map((day, dayIndex) => {
-        const date = this.getDateForDay(dayIndex);
+        const date = this.getDateForWeekDay(dayIndex);
         const classes = ['day-header'];
         if (this.isAssessmentDay(date)) classes.push('assessment-day-header');
         return `<div class="${classes.join(' ')}" data-date="${date}" title="${this.escapeHtml(this.getDayTooltip(date))}">${day}<span class="day-date">${date.slice(8)}</span></div>`;
@@ -442,7 +577,7 @@ class ScheduleView {
       row.innerHTML = `
         <div class="time-slot">${timeSlot}</div>
         ${this.getDaysOfWeek().map((day, dayIndex) => {
-          const date = this.getDateForDay(dayIndex);
+          const date = this.getDateForWeekDay(dayIndex);
           const shifts = this.getShiftsForDateAndTime(date, timeSlot);
           const cellClasses = ['shift-cell'];
           if (this.isAssessmentDay(date)) cellClasses.push('assessment-day');
@@ -505,7 +640,9 @@ class ScheduleView {
       const dayEl = document.createElement('div');
       const engine = this.app.state.getEngine();
       const op = engine.isOperationalDay(dateStr);
-      dayEl.className = op ? 'month-day' : 'month-day non-operational';
+      dayEl.className = op ? 'month-day month-day-clickable' : 'month-day non-operational';
+      dayEl.dataset.date = dateStr;
+      if (op) dayEl.title = 'Click to open week view';
       if (op && this.isAssessmentDay(dateStr)) dayEl.classList.add('assessment-day');
 
       const dayShifts = this.shifts.filter(s => s.date === dateStr);
@@ -639,6 +776,58 @@ class ScheduleView {
     return SchedulerUtils.localDateStr(date);
   }
 
+  setupMonthDayNavigation() {
+    if (this.isThreeMonthView() || this.isWeekView()) return;
+    document.querySelectorAll('.month-day-clickable[data-date]').forEach(day => {
+      day.addEventListener('click', (e) => {
+        if (e.target.closest('.shift-item, .assignee-chip, button')) return;
+        if (!this.app.can('schedule.weekView')) return;
+        this.openWeekView(day.dataset.date);
+      });
+    });
+  }
+
+  async openWeekView(dateStr) {
+    if (this.isThreeMonthView()) return;
+    const clicked = new Date(`${dateStr}T12:00:00`);
+    this.viewMode = 'week';
+    this.currentMonth = clicked.getMonth();
+    this.currentYear = clicked.getFullYear();
+    this.weekStartDate = this.getSundayOfWeek(dateStr);
+    this.normalizeWeekStartForMonth();
+    this.app.state.month = this.currentMonth;
+    this.app.state.year = this.currentYear;
+    this.syncViewModeUi();
+    document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
+    await this.loadShifts();
+    this.renderCalendar();
+  }
+
+  async toggleViewMode() {
+    if (this.isThreeMonthView()) {
+      window.app.showToast('Switch off 3-month view first', 'warning');
+      return;
+    }
+    if (this.isWeekView()) {
+      this.viewMode = 'month';
+      this.weekStartDate = null;
+    } else {
+      this.viewMode = 'week';
+      const today = new Date();
+      let anchorDay = 1;
+      if (today.getFullYear() === this.currentYear && today.getMonth() === this.currentMonth) {
+        anchorDay = today.getDate();
+      }
+      const anchorStr = SchedulerUtils.dateISO(this.currentYear, this.currentMonth, anchorDay);
+      this.weekStartDate = this.getSundayOfWeek(anchorStr);
+      this.normalizeWeekStartForMonth();
+    }
+    this.syncViewModeUi();
+    document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
+    await this.loadShifts();
+    this.renderCalendar();
+  }
+
   getShiftsForDateAndTime(date, timeSlot) {
     return this.shifts.filter(shift => 
       shift.date === date && shift.start === timeSlot
@@ -729,11 +918,15 @@ class ScheduleView {
 
   setupEventListeners() {
     document.getElementById('prev-month-btn')?.addEventListener('click', () => {
-      this.previousMonth();
+      this.previousPeriod();
     });
 
     document.getElementById('next-month-btn')?.addEventListener('click', () => {
-      this.nextMonth();
+      this.nextPeriod();
+    });
+
+    document.getElementById('toggle-view-mode-btn')?.addEventListener('click', () => {
+      this.toggleViewMode();
     });
 
     document.getElementById('add-shift-btn')?.addEventListener('click', () => {
@@ -800,8 +993,8 @@ class ScheduleView {
 
     this._scheduleKeyHandler = (e) => {
       if (this.app.currentView !== 'schedule') return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); this.previousMonth(); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); this.nextMonth(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); this.previousPeriod(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); this.nextPeriod(); }
       if (e.key === 'Escape') {
         this.closeStudentSelectionModal();
         this.closeSwapModal();
@@ -833,7 +1026,13 @@ class ScheduleView {
 
   async toggleThreeMonthView() {
     await this.app.state.setThreeMonthView(!this.isThreeMonthView());
+    if (this.isThreeMonthView()) {
+      this.viewMode = 'month';
+      this.weekStartDate = null;
+      this.syncViewModeUi();
+    }
     this.syncThreeMonthUi();
+    document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
     await this.loadShifts();
     this.renderCalendar();
     window.app.showToast(this.isThreeMonthView() ? '3-month view enabled' : 'Single month view', 'info');
@@ -951,30 +1150,52 @@ class ScheduleView {
     });
   }
 
-  async previousMonth() {
-    this.currentMonth--;
-    if (this.currentMonth < 0) {
-      this.currentMonth = 11;
-      this.currentYear--;
+  async previousPeriod() {
+    if (this.isWeekView()) {
+      const weeks = this.getMonthWeekStarts();
+      const idx = this.getWeekIndexInMonth();
+      if (idx <= 0) return;
+      this.weekStartDate = weeks[idx - 1];
+    } else {
+      this.currentMonth--;
+      if (this.currentMonth < 0) {
+        this.currentMonth = 11;
+        this.currentYear--;
+      }
+      this.app.state.year = this.currentYear;
+      this.app.state.month = this.currentMonth;
     }
-    this.app.state.year = this.currentYear;
-    this.app.state.month = this.currentMonth;
-    document.getElementById('month-year-display').textContent = this.getMonthYearDisplay();
+    document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
     await this.loadShifts();
     this.renderCalendar();
   }
 
-  async nextMonth() {
-    this.currentMonth++;
-    if (this.currentMonth > 11) {
-      this.currentMonth = 0;
-      this.currentYear++;
+  async nextPeriod() {
+    if (this.isWeekView()) {
+      const weeks = this.getMonthWeekStarts();
+      const idx = this.getWeekIndexInMonth();
+      if (idx < 0 || idx >= weeks.length - 1) return;
+      this.weekStartDate = weeks[idx + 1];
+    } else {
+      this.currentMonth++;
+      if (this.currentMonth > 11) {
+        this.currentMonth = 0;
+        this.currentYear++;
+      }
+      this.app.state.year = this.currentYear;
+      this.app.state.month = this.currentMonth;
     }
-    this.app.state.year = this.currentYear;
-    this.app.state.month = this.currentMonth;
-    document.getElementById('month-year-display').textContent = this.getMonthYearDisplay();
+    document.getElementById('month-year-display').textContent = this.getPeriodDisplayLabel();
     await this.loadShifts();
     this.renderCalendar();
+  }
+
+  async previousMonth() {
+    await this.previousPeriod();
+  }
+
+  async nextMonth() {
+    await this.nextPeriod();
   }
 
   openStudentSelectionModal(date, start) {
@@ -993,26 +1214,32 @@ class ScheduleView {
       ${shift.testShiftName ? `<br>Test: ${this.escapeHtml(shift.testShiftName)}` : ''}`;
 
     const engine = this.buildEngineContext();
+    const admin = this.isAdminMode();
+    const rawShift = engine?.state.schedule[`${date} ${start}`];
+
     list.innerHTML = this.students.map(student => {
       const sid = String(student.id);
       const already = shift.assignees?.some(a => String(a.id) === sid);
-      const can = engine && engine.canAssignStudentToShift(sid, engine.state.schedule[`${date} ${start}`]);
-      const avail = engine && engine.isStudentAvailable(sid, date, start, shift.end, engine.getAvailability(sid));
-      const icon = already ? '⚠️' : (can ? '✅' : (avail ? '🔒' : '🔒'));
-      const cls = can && !already ? 'student-picker-item available' : 'student-picker-item unavailable';
+      const can = rawShift && engine && engine.canAssignStudentToShift(sid, rawShift);
+      const eligible = !already && (admin || can);
+      const icon = already ? '⚠️' : (admin ? '🔧' : (can ? '✅' : '🔒'));
+      const cls = eligible ? 'student-picker-item available' : 'student-picker-item unavailable';
+      const details = already
+        ? 'Already assigned'
+        : (admin ? 'Admin override — bypass limits' : (can ? 'Eligible' : 'Not eligible'));
       return `
-        <div class="${cls}" data-student-id="${sid}" ${can && !already ? '' : 'aria-disabled="true"'}>
+        <div class="${cls}" data-student-id="${sid}" data-eligible="${eligible ? '1' : '0'}">
           <span class="sq" style="background:${student.color}"></span>
           <div>
             <div class="student-name">${this.escapeHtml(student.name)} ${icon}</div>
-            <div class="student-details">${already ? 'Already assigned' : (can ? 'Eligible' : 'Not eligible')}</div>
+            <div class="student-details">${details}</div>
           </div>
         </div>`;
     }).join('');
 
-    list.querySelectorAll('.student-picker-item.available').forEach(item => {
+    list.querySelectorAll('.student-picker-item[data-eligible="1"]').forEach(item => {
       item.addEventListener('click', () => {
-        this.assignStudentToShift(item.dataset.studentId, date, start, false);
+        this.assignStudentToShift(item.dataset.studentId, date, start, admin);
         this.closeStudentSelectionModal();
       });
     });
@@ -1252,7 +1479,11 @@ class ScheduleView {
   async fillOpenClose() {
     try {
       window.app.showToast('Filling opening/closing shifts...', 'info');
-      await this.app.state.fillOpenClose(this.currentYear, this.currentMonth);
+      const shifts = await this.app.state.fillOpenClose(this.currentYear, this.currentMonth);
+      if (!shifts?.length) {
+        window.app.showToast('No schedule — generate first', 'warning');
+        return;
+      }
       await this.loadShifts();
       this.renderCalendar();
       window.app.showToast('Opening/closing shifts filled', 'success');
@@ -1356,10 +1587,19 @@ class ScheduleView {
 
   // Admin Mode Functions
   isAdminMode() {
+    if (this.app?.can && !this.app.can('schedule.adminMode')) {
+      return false;
+    }
     return localStorage.getItem('adminMode') === 'true';
   }
 
   toggleAdminMode() {
+    if (this.app?.can && !this.app.can('schedule.adminMode')) {
+      localStorage.setItem('adminMode', 'false');
+      this.syncAdminModeUi();
+      window.app.showToast('Admin mode is not available for your role', 'warning');
+      return;
+    }
     const newMode = !this.isAdminMode();
     localStorage.setItem('adminMode', newMode.toString());
     this.syncAdminModeUi();

@@ -101,10 +101,39 @@ class SchedulingEngine {
     shift.required = shift.required || 1;
     if (shift.maxCapacity == null) shift.maxCapacity = shift.required;
     shift.status = shift.status || 'pending';
-    shift.isOpening = !!shift.isOpening;
-    shift.isClosing = !!shift.isClosing;
+    const edge = this.resolveShiftEdgeFlags(shift);
+    shift.isOpening = edge.isOpening;
+    shift.isClosing = edge.isClosing;
     if (shift.testShiftName == null) shift.testShiftName = null;
     return shift;
+  }
+
+  resolveShiftEdgeFlags(shift) {
+    let isOpening = !!shift.isOpening;
+    let isClosing = !!shift.isClosing;
+    if (!isOpening && !isClosing) {
+      const tpl = (this.state.templates || []).find(
+        t => t.start === shift.start && t.end === shift.end
+      );
+      if (tpl) {
+        isOpening = !!tpl.isOpening;
+        isClosing = !!tpl.isClosing;
+      }
+    }
+    if (!isOpening && !isClosing) {
+      if (shift.start === '06:30') isOpening = true;
+      if (shift.start === '17:30') isClosing = true;
+    }
+    return { isOpening, isClosing };
+  }
+
+  applyTemplateEdgeFlagsToSchedule() {
+    this.defaultTemplatesIfEmpty();
+    for (const shift of Object.values(this.state.schedule)) {
+      const edge = this.resolveShiftEdgeFlags(shift);
+      shift.isOpening = edge.isOpening;
+      shift.isClosing = edge.isClosing;
+    }
   }
 
   getShiftCapacity(shift) {
@@ -1076,29 +1105,61 @@ class SchedulingEngine {
   fillOpenClose() {
     this.buildRunContext();
     try {
-    const keys = Object.keys(this.state.schedule).sort();
-    let assigns = 0;
-    for (const k of keys) {
-      const s = this.state.schedule[k];
-      if (!s || !(s.isOpening || s.isClosing)) continue;
-      const target = Math.min(
-        this.getShiftCapacity(s),
-        this.state.students.length
-      );
-      while ((s.assignees?.length || 0) < target) {
-        const candidates = [...this._ctx.studentMap.values()].filter(st =>
-          !s.assignees.includes(st.id) &&
-          this.canAssignStudentToShift(st.id, s) &&
-          this.validateAssignment(st.id, s).length === 0
+      this.applyTemplateEdgeFlagsToSchedule();
+
+      const shifts = Object.values(this.state.schedule)
+        .filter(s => s.isOpening || s.isClosing)
+        .sort((a, b) =>
+          a.date.localeCompare(b.date) ||
+          this.parseTimeStr(a.start) - this.parseTimeStr(b.start)
         );
-        if (!candidates.length) break;
-        s.assignees.push(candidates[0].id);
-        assigns++;
+
+      let assigns = 0;
+      for (const shift of shifts) {
+        const target = Math.min(this.getShiftCapacity(shift), this.state.students.length);
+        let slotsToFill = target - (shift.assignees?.length || 0);
+        if (slotsToFill <= 0) continue;
+
+        const students = [...this._ctx.studentMap.values()];
+        let baseCandidates = students.filter(c =>
+          !shift.assignees.includes(c.id) &&
+          this.canAssignStudentToShift(c.id, shift)
+        );
+        if (shift.isOpening || shift.isClosing) {
+          baseCandidates = baseCandidates.filter(c => this.canExtendTwoHours(c.id, shift));
+        }
+        const sortedCandidates = this.rankCandidates(baseCandidates, shift);
+        const shiftMinutes = this.parseTimeStr(shift.end) - this.parseTimeStr(shift.start);
+
+        for (let i = 0; i < sortedCandidates.length && slotsToFill > 0; i++) {
+          const student = sortedCandidates[i];
+          const sid = String(student.id);
+          const addHours = shiftMinutes / 60;
+          const studentRec = this.getStudent(sid);
+          if (studentRec && this.getWeeklyAssignedHours(sid, shift.date) + addHours > studentRec.weekly_max_hours) {
+            continue;
+          }
+          if (studentRec && this.getTotalMonthlyHours(sid, shift.date) + addHours > studentRec.contracted_monthly_hours) {
+            continue;
+          }
+          if (this.validateAssignment(sid, shift).length > 0) continue;
+          if (shift.isOpening || shift.isClosing) {
+            const prev = new Date(shift.date + 'T00:00:00');
+            prev.setDate(prev.getDate() - 1);
+            if (this.didEdge(this.u.localDateStr(prev), sid, shift.isOpening ? 'open' : 'close')) continue;
+          }
+          if (this.getConsecutiveHours(sid, shift.date, shift.start, shift.end) > 5) continue;
+
+          shift.assignees.push(sid);
+          this.assignAdjacentIfPossible(sid, shift);
+          assigns++;
+          slotsToFill--;
+        }
       }
-    }
-    this.recalculateFairness();
-    this.log(`Fill openings/closings: assigned ${assigns} slot(s)`);
-    return this.scheduleToShifts();
+
+      this.recalculateFairness();
+      this.log(`Fill openings/closings: assigned ${assigns} slot(s)`);
+      return this.scheduleToShifts();
     } finally {
       this.clearRunContext();
     }

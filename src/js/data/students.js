@@ -19,6 +19,8 @@ const StudentData = {
       status: raw.status || 'active',
       availability: raw.availability || { weekly: [], unavailable_dates: [] },
       testDates: Array.isArray(raw.testDates) ? raw.testDates : [],
+      email: raw.email || '',
+      studentNumber: raw.studentNumber || raw.student_number || '',
       recentShifts: raw.recentShifts || [],
       contractType: raw.contractType || (typeof ContractManager !== 'undefined'
         ? ContractManager.resolveType(monthlyMax)

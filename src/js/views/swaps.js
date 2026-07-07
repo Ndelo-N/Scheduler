@@ -454,6 +454,7 @@ class SwapsView {
     });
 
     document.getElementById('close-swap-request-modal')?.addEventListener('click', () => this.closeSwapRequestModal());
+    document.getElementById('cancel-swap-request-btn')?.addEventListener('click', () => this.closeSwapRequestModal());
     document.getElementById('submit-swap-request-btn')?.addEventListener('click', () => this.submitSwapRequest());
     document.getElementById('swap-requester-select')?.addEventListener('change', () => this.loadShiftsForRequester());
     document.getElementById('swap-request-modal')?.addEventListener('click', (e) => {

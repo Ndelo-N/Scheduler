@@ -930,14 +930,14 @@ class AppStateManager {
   async fillOpenClose(year, month) {
     const y = year ?? this.year;
     const m = month ?? this.month;
-    const engine = this.getEngine();
-    const existing = await this.getShiftsForMonth(y, m);
+    const months = this.getEditorMonths(y, m);
+    const existing = await this._collectShiftsForMonths(months);
     if (!existing.length) throw new Error('No schedule — generate first');
-    engine.loadShiftsIntoSchedule(existing);
+    const { shifts } = await this.withScheduleEngine(months, engine => {
+      engine.fillOpenClose();
+    });
     this.year = y;
     this.month = m;
-    const shifts = engine.fillOpenClose();
-    await this.saveShiftsForMonth(y, m, shifts);
     return shifts;
   }
 
@@ -1009,6 +1009,9 @@ class AppStateManager {
       }
 
       if (!adminOverride) {
+        if ((target.assignees?.length || 0) >= engine.getShiftCapacity(target)) {
+          throw new Error('Shift is at capacity');
+        }
         if (!engine.canAssignStudentToShift(sid, target)) {
           const conflicts = engine.validateAssignment(sid, target);
           throw new Error(conflicts.length ? conflicts.join('; ') : 'Cannot assign student to this shift');
@@ -1276,6 +1279,20 @@ class AppStateManager {
     this.logger.log(`Saved ${this.students.length} students`);
   }
 
+  /** Remove every student from IndexedDB and reset related roster metadata. */
+  async clearAllStudents() {
+    this.students = [];
+    this.availabilityAccess = {};
+    this.testDateAccess = {};
+    this.fairness = {};
+    this._nextId = 1;
+    await this.storage.saveStudents([]);
+    await this.scrubScheduleAssignees();
+    await this.persistMeta();
+    this.logger.log('Cleared all students');
+    return [];
+  }
+
   async addStudent({ name, weeklyMaxHours = 18, contractedMonthlyHours = 72, color = null }) {
     if (!name || !String(name).trim()) throw new Error('Student name is required');
     const weekly = ContractManager.validateHours(weeklyMaxHours, ContractManager.MAX_HOURS);
@@ -1301,10 +1318,18 @@ class AppStateManager {
 
   async importCSV(csvText) {
     const result = CSVParser.parse(csvText);
+    if (result.mode === 'form-response') {
+      return this.importFormResponses(result);
+    }
+
     const students = result.students.map(s => StudentData.enrich({
       ...s,
       id: s.id || this.genId()
     }));
+
+    if (!students.length) {
+      throw new Error(result.warnings[0] || 'No students found in file');
+    }
 
     await this.saveStudents(students);
 
@@ -1313,6 +1338,98 @@ class AppStateManager {
     }
     this.logger.log(`Imported ${students.length} students (${result.mode} format)`);
     return { ...result, students };
+  }
+
+  /** Drop assignees on saved schedules whose IDs are not in the current roster. */
+  async scrubScheduleAssignees() {
+    const validIds = new Set(this.students.map((s) => String(s.id)));
+    const schedules = await this.storage.getAllSchedules();
+    for (const record of schedules) {
+      if (!record?.shifts?.length) continue;
+      let changed = false;
+      for (const shift of record.shifts) {
+        const before = (shift.assignees || []).length;
+        shift.assignees = (shift.assignees || []).filter((a) => {
+          const id = typeof a === 'object' ? String(a.id) : String(a);
+          return validIds.has(id);
+        });
+        if (shift.assignees.length !== before) changed = true;
+      }
+      if (changed) {
+        await this.saveShiftsForMonth(record.year, record.month, record.shifts);
+      }
+    }
+  }
+
+  /** Import UP form export — replaces the roster by default (use merge: true to combine). */
+  async importFormResponses(parsed, { merge = false } = {}) {
+    if (!parsed || !Array.isArray(parsed.students)) {
+      throw new Error('Invalid form import payload');
+    }
+    if (!parsed.students.length) {
+      throw new Error(parsed.warnings?.[0] || 'No students found in form file');
+    }
+
+    const existing = merge ? [...this.students] : [];
+    let created = 0;
+    let updated = 0;
+
+    for (const incoming of parsed.students) {
+      const enriched = StudentData.enrich({
+        ...incoming,
+        id: incoming.id || this.genId()
+      });
+
+      const match = merge ? existing.find((s) => {
+        if (enriched.studentNumber && s.studentNumber === enriched.studentNumber) return true;
+        if (enriched.email && s.email && s.email.toLowerCase() === enriched.email.toLowerCase()) return true;
+        return s.name.trim().toLowerCase() === enriched.name.trim().toLowerCase();
+      }) : null;
+
+      if (match) {
+        match.name = enriched.name || match.name;
+        match.email = enriched.email || match.email;
+        match.studentNumber = enriched.studentNumber || match.studentNumber;
+        match.availability = enriched.availability;
+        match.testDates = enriched.testDates;
+        this.ensureAvailabilityAccess(match.id);
+        this.ensureTestDateAccess(match.id);
+        updated++;
+      } else {
+        existing.push(enriched);
+        this.ensureAvailabilityAccess(enriched.id);
+        this.ensureTestDateAccess(enriched.id);
+        created++;
+      }
+    }
+
+    if (!merge) {
+      this.availabilityAccess = {};
+      this.testDateAccess = {};
+      this.fairness = {};
+    }
+
+    await this.saveStudents(existing);
+    await this.scrubScheduleAssignees();
+    await this.persistMeta();
+
+    if (parsed.warnings?.length) {
+      parsed.warnings.forEach((w) => this.logger.log(`Form import warning: ${w}`));
+    }
+    this.logger.log(`Form import: ${created} created, ${updated} updated${merge ? ' (merge)' : ' (replace)'}`);
+    return { ...parsed, students: this.students, created, updated, replaced: !merge };
+  }
+
+  async importStudentFile(file) {
+    const name = (file && file.name) || '';
+    if (/\.xlsx?$/i.test(name)) {
+      const parsed = FormResponseImport.parseXlsxArrayBuffer(await file.arrayBuffer());
+      if (!parsed.students?.length) {
+        throw new Error(parsed.warnings?.[0] || 'Unrecognized Excel file — no students imported');
+      }
+      return this.importFormResponses(parsed);
+    }
+    return this.importCSV(await file.text());
   }
 
   async loadSample() {

@@ -1,3 +1,6 @@
 ﻿.env
 node_modules/
 *.patch
+
+# Provisioned test credentials — never commit plaintext passwords
+tests/fixtures/form-responses/*-credentials.txt

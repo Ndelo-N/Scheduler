@@ -34,7 +34,8 @@ class StudentsView {
         <div class="students-actions">
           <button class="btn btn-primary" id="add-student-btn" data-feature="students.addStudent">Add Student</button>
           <button class="btn btn-secondary" id="load-sample-btn" data-feature="students.loadSample">Load Sample</button>
-          <button class="btn btn-secondary" id="import-csv-btn" data-feature="students.importCsv">Import CSV</button>
+          <button class="btn btn-secondary" id="import-csv-btn" data-feature="students.importCsv">Import CSV / Form XLSX</button>
+          <button class="btn btn-danger" id="clear-students-btn" data-feature="students.clearAll">Clear all students</button>
           <button class="btn btn-secondary" id="export-csv-btn" data-feature="students.exportCsv">Export CSV</button>
         </div>
       </div>
@@ -522,6 +523,7 @@ class StudentsView {
     document.getElementById('add-student-btn')?.addEventListener('click', () => this.showAddStudentModal());
     document.getElementById('load-sample-btn')?.addEventListener('click', () => this.loadSample());
     document.getElementById('import-csv-btn')?.addEventListener('click', () => this.showImportCSVModal());
+    document.getElementById('clear-students-btn')?.addEventListener('click', () => this.clearAllStudents());
     document.getElementById('export-csv-btn')?.addEventListener('click', () => this.exportCSV());
     document.getElementById('export-compliance-btn')?.addEventListener('click', () => this.exportComplianceCSV());
     document.getElementById('export-availability-btn')?.addEventListener('click', () => this.exportAvailabilityCSV());
@@ -690,20 +692,49 @@ class StudentsView {
   showImportCSVModal() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.csv,text/csv';
+    input.accept = '.csv,text/csv,.xlsx,.xls';
     input.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       try {
-        const result = await this.app.state.importCSV(await file.text());
+        const result = await this.app.state.importStudentFile(file);
         await this.loadData();
         this.renderStudentsList();
-        window.app.showToast(`Imported ${result.students.length} students`, 'success');
+        const detail = result.replaced
+          ? `${result.students.length} students (replaced roster)`
+          : result.created != null
+            ? `${result.created} new, ${result.updated} updated`
+            : `${result.students.length} students`;
+        window.app.showToast(`Imported ${detail}`, 'success');
+        if (result.warnings?.length) {
+          console.warn('Import warnings:', result.warnings);
+        }
       } catch (error) {
-        window.app.showToast('Failed to import CSV', 'error');
+        window.app.showToast(error.message || 'Failed to import file', 'error');
       }
     });
     input.click();
+  }
+
+  async clearAllStudents() {
+    const count = this.students.length;
+    if (!count) {
+      window.app.showToast('No students to clear', 'info');
+      return;
+    }
+    const ok = await window.app.confirmDialog(
+      `Delete all ${count} student(s) from the roster? This cannot be undone. Import again afterward for a fresh schedule.`,
+      { title: 'Clear all students', confirmLabel: 'Clear all', danger: true }
+    );
+    if (!ok) return;
+    try {
+      await this.app.state.clearAllStudents();
+      await this.loadData();
+      this.renderStudentsList();
+      window.app.showToast('All students cleared', 'success');
+    } catch (error) {
+      window.app.showToast(error.message || 'Failed to clear students', 'error');
+    }
   }
 
   async loadSample() {

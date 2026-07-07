@@ -1,15 +1,17 @@
 // Student Shift Scheduler PWA - Service Worker
-// Version 1.1.0
+// Version 1.1.1
 //   F-07: STATIC_FILES now covers EVERY asset index.html loads (all core/data/
 //         utils/views modules + the SheetJS vendor bundle + styles), so a cold
 //         offline boot actually has its module graph cached.
 //   F-08: static matching resolves each relative entry against the SW scope and
 //         compares absolute URLs, instead of testing relative strings against an
 //         absolute url.pathname (which never matched).
+//   F-09: CSS/JS use stale-while-revalidate so auth/UI fixes are not stuck behind
+//         cache-first forever; bump STATIC_CACHE when breaking offline layout.
 
-const CACHE_NAME = 'shift-scheduler-v1.1.0';
-const STATIC_CACHE = 'static-v1.1.0';
-const DYNAMIC_CACHE = 'dynamic-v1.1.0';
+const CACHE_NAME = 'shift-scheduler-v1.1.8';
+const STATIC_CACHE = 'static-v1.1.8';
+const DYNAMIC_CACHE = 'dynamic-v1.1.8';
 
 // Files to cache immediately. Listed relative to the SW scope, matching the
 // exact paths in index.html (load order preserved for readability).
@@ -40,6 +42,7 @@ const STATIC_FILES = [
   // data
   'src/js/data/students.js',
   'src/js/data/csv.js',
+  'src/js/data/formResponseImport.js',
   // remaining core
   'src/js/core/state.js',
   'src/js/core/schedulingEngine.js',
@@ -47,6 +50,8 @@ const STATIC_FILES = [
   // utils
   'src/js/utils/storage.js',
   'src/js/utils/api.js',
+  'src/js/core/accessControl.js',
+  'src/js/core/authGate.js',
   'src/js/utils/notifications.js',
   // views
   'src/js/views/dashboard.js',
@@ -67,6 +72,15 @@ const STATIC_FILES = [
 // request.url at fetch time). Built once at SW evaluation.
 const STATIC_URLS = new Set(STATIC_FILES.map((f) => new URL(f, self.location).href));
 const INDEX_URL = new URL('index.html', self.location).href;
+
+// Styles + scripts revalidate in the background so UI/auth CSS updates are not
+// permanently pinned by cache-first (see auth-panel contrast fix in main.css).
+const REVALIDATE_SUFFIXES = ['.css', '.js'];
+function shouldRevalidate(request) {
+  if (request.method !== 'GET') return false;
+  const path = new URL(request.url).pathname;
+  return REVALIDATE_SUFFIXES.some((suffix) => path.endsWith(suffix));
+}
 
 // API endpoints to cache
 const API_CACHE_PATTERNS = [
@@ -126,8 +140,12 @@ self.addEventListener('fetch', (event) => {
 
   // Handle different types of requests
   if (request.method === 'GET') {
-    // Static files - cache first (F-08: compare absolute URLs)
-    if (STATIC_URLS.has(request.url)) {
+    // CSS/JS — serve cache immediately, refresh from network in background
+    if (shouldRevalidate(request) && STATIC_URLS.has(request.url)) {
+      event.respondWith(staleWhileRevalidate(request));
+    }
+    // Other static files - cache first (F-08: compare absolute URLs)
+    else if (STATIC_URLS.has(request.url)) {
       event.respondWith(cacheFirst(request));
     }
     // API requests - network first with cache fallback
@@ -166,6 +184,37 @@ async function cacheFirst(request) {
       statusText: 'Service Unavailable'
     });
   }
+}
+
+// Stale-while-revalidate — return cached asset immediately, update cache async
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const cachedResponse = await cache.match(request);
+
+  const refresh = fetch(request)
+    .then((networkResponse) => {
+      if (networkResponse && networkResponse.ok) {
+        cache.put(request, networkResponse.clone());
+      }
+      return networkResponse;
+    })
+    .catch((error) => {
+      console.warn('Stale-while-revalidate fetch failed:', error);
+      return null;
+    });
+
+  if (cachedResponse) {
+    refresh.catch(() => {});
+    return cachedResponse;
+  }
+
+  const networkResponse = await refresh;
+  if (networkResponse) return networkResponse;
+
+  return new Response('Offline - content not available', {
+    status: 503,
+    statusText: 'Service Unavailable'
+  });
 }
 
 // Network first strategy

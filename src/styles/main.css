@@ -363,30 +363,33 @@ body {
 }
 
 .schedule-content {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  grid-template-rows: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-md);
   min-height: 480px;
-  max-height: calc(100vh - 280px);
-  overflow: hidden;
+}
+
+.schedule-main {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: var(--spacing-md);
+  min-width: 0;
 }
 
 .schedule-sidebar {
   overflow-y: auto;
   padding-right: var(--spacing-xs);
   border-right: 1px solid var(--border-color);
-  min-height: 0;
+  max-height: 72vh;
 }
 
 .schedule-calendar {
-  overflow: auto;
+  overflow: hidden;
   min-width: 0;
-  min-height: 0;
 }
 
 .schedule-footer {
-  grid-column: 1 / -1;
+  width: 100%;
   min-width: 0;
   padding-top: var(--spacing-sm);
   border-top: 1px solid var(--border-color);
@@ -580,8 +583,37 @@ body {
 .month-cal-head,
 .month-cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
+}
+
+.calendar-grid-week {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.calendar-grid-week .calendar-header,
+.calendar-grid-week .calendar-row {
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+}
+
+.calendar-grid-month {
+  width: 100%;
+  overflow: hidden;
+}
+
+.calendar-grid-month .month-cal {
+  width: 100%;
+}
+
+.calendar-grid-month .month-day {
+  min-height: 88px;
+  overflow: hidden;
+}
+
+.calendar-grid-month .month-day-shifts {
+  max-height: 68px;
+  overflow-y: auto;
 }
 
 .month-cal-head {
@@ -602,6 +634,14 @@ body {
 .month-day.non-operational {
   background: var(--bg-secondary);
   opacity: 0.6;
+}
+
+.month-day-clickable {
+  cursor: pointer;
+}
+
+.month-day-clickable:hover {
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .month-day-num {

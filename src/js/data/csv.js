@@ -8,6 +8,9 @@ const CSVParser = {
 5,Eva,10,40,#E0BBE4,"{""weekly"": [{""day"":""Tue"",""start"":""09:00"",""end"":""12:00""},{""day"":""Thu"",""start"":""12:00"",""end"":""18:00""}], ""unavailable_dates"": [{""date"":""2025-09-19"",""start"":""14:00"",""end"":""16:00""}]}"`,
 
   parse(csvText) {
+    if (typeof FormResponseImport !== 'undefined' && FormResponseImport.looksLikeFormExportText(csvText)) {
+      return FormResponseImport.parseCsvText(csvText);
+    }
     if (this.detectGoogleFormCSV(csvText)) {
       return this.parseGoogleFormCSV(csvText);
     }
@@ -19,7 +22,7 @@ const CSVParser = {
     if (/(^|,)\s*availability\s*(,|$)/.test(first)) return false;
     return first.includes('timestamp') || first.includes('email') ||
       first.includes('form') || first.includes('what is your name') ||
-      first.includes('student name');
+      first.includes('student name') || first.includes('full name');
   },
 
   parseSchedulerCSV(csvText) {
@@ -29,10 +32,14 @@ const CSVParser = {
     const header = this.splitCsvLine(lines[0]).map(h => h.trim());
     const idx = Object.fromEntries(header.map((h, i) => [h, i]));
     const students = [];
+    const warnings = [];
 
     for (const line of lines.slice(1)) {
       const cols = this.splitCsvLine(line);
       const get = (k) => (cols[idx[k]] ?? '').trim();
+      const name = get('name');
+      if (!name) continue;
+
       let availability = { weekly: [], unavailable_dates: [] };
       const availStr = get('availability') || '{}';
       try {
@@ -45,7 +52,7 @@ const CSVParser = {
 
       students.push({
         id: get('id') || '',
-        name: get('name') || '',
+        name,
         color: get('color') || '#BDE0FF',
         avatar_url: get('avatar_url') || '',
         weekly_max_hours: Number(get('weekly_max_hours') || 18),
@@ -54,7 +61,11 @@ const CSVParser = {
       });
     }
 
-    return { students, mode: 'scheduler', warnings: [] };
+    if (!students.length && lines.length > 1) {
+      warnings.push('No rows with a name column — use scheduler CSV or UP form export');
+    }
+
+    return { students, mode: 'scheduler', warnings };
   },
 
   parseGoogleFormCSV(csvText) {
@@ -107,8 +118,10 @@ const CSVParser = {
   },
 
   findFirst(arr, candidates) {
+    const norm = (s) => String(s).trim().toLowerCase();
     for (const c of candidates) {
-      const idx = arr.indexOf(c);
+      const needle = norm(c);
+      const idx = arr.findIndex((h) => norm(h) === needle);
       if (idx >= 0) return idx;
     }
     return -1;
