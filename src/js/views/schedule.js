@@ -35,7 +35,7 @@ class ScheduleView {
 
     this.container.innerHTML = `
       <div class="schedule-header">
-        <div class="schedule-controls">
+        <div class="schedule-controls" data-feature="schedule.navMonth">
           <button class="btn btn-icon" id="prev-month-btn">
             <i class="icon-chevron-left"></i>
           </button>
@@ -45,41 +45,41 @@ class ScheduleView {
           </button>
         </div>
         <div class="schedule-actions">
-          <button class="btn btn-primary" id="add-shift-btn">
+          <button class="btn btn-primary" id="add-shift-btn" data-feature="schedule.addShift">
             <i class="icon-plus"></i>
             Add Shift
           </button>
-          <button class="btn btn-secondary" id="generate-schedule-btn">
+          <button class="btn btn-secondary" id="generate-schedule-btn" data-feature="schedule.generate">
             <i class="icon-magic"></i>
             Generate Schedule
           </button>
-          <button class="btn btn-secondary" id="rebalance-btn">
+          <button class="btn btn-secondary" id="rebalance-btn" data-feature="schedule.rebalance">
             <i class="icon-balance"></i>
             Rebalance
           </button>
-          <button class="btn btn-secondary" id="fill-open-close-btn">
+          <button class="btn btn-secondary" id="fill-open-close-btn" data-feature="schedule.fillOpenClose">
             Fill Open/Close
           </button>
-          <button class="btn btn-secondary" id="export-csv-btn" title="Ctrl+E">
+          <button class="btn btn-secondary" id="export-csv-btn" title="Ctrl+E" data-feature="schedule.exportCsv">
             Export CSV
           </button>
-          <button class="btn btn-secondary" id="export-ics-btn" title="Ctrl+I">
+          <button class="btn btn-secondary" id="export-ics-btn" title="Ctrl+I" data-feature="schedule.exportIcs">
             Export ICS
           </button>
-          <button class="btn btn-secondary" id="print-schedule-btn" title="Ctrl+P">
+          <button class="btn btn-secondary" id="print-schedule-btn" title="Ctrl+P" data-feature="schedule.print">
             Print
           </button>
-          <button class="btn btn-secondary" id="save-state-btn" title="Ctrl+S">
+          <button class="btn btn-secondary" id="save-state-btn" title="Ctrl+S" data-feature="schedule.saveState">
             Save
           </button>
-          <button class="btn btn-secondary" id="load-state-btn" title="Ctrl+O">
+          <button class="btn btn-secondary" id="load-state-btn" title="Ctrl+O" data-feature="schedule.loadState">
             Load
           </button>
-          <button class="btn btn-secondary" id="toggle-three-month-btn" title="Ctrl+T">
+          <button class="btn btn-secondary" id="toggle-three-month-btn" title="Ctrl+T" data-feature="schedule.threeMonth">
             <i class="icon-calendar"></i>
             <span id="three-month-label">3-Month View</span>
           </button>
-          <button class="btn btn-warning" id="admin-mode-btn">
+          <button class="btn btn-warning" id="admin-mode-btn" data-feature="schedule.adminMode">
             <i class="icon-shield"></i>
             <span id="admin-mode-text">Enable Admin Mode</span>
           </button>
@@ -90,14 +90,14 @@ class ScheduleView {
 
       <div class="schedule-content">
         <div class="schedule-sidebar">
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="schedule.sidebar.students">
             <h3>Students</h3>
             <div class="student-list" id="student-list">
               <div class="loading">Loading...</div>
             </div>
           </div>
           
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="schedule.sidebar.templates">
             <h3>Shift Templates</h3>
             <div class="template-list" id="template-list">
               <div class="loading">Loading...</div>
@@ -105,50 +105,58 @@ class ScheduleView {
           </div>
         </div>
 
-        <div class="schedule-calendar">
+        <div class="schedule-calendar" data-feature="schedule.calendar">
           <div class="calendar-grid" id="calendar-grid">
             <div class="loading">Loading...</div>
           </div>
         </div>
-      </div>
 
-      <div class="schedule-footer">
-        <div class="schedule-stats">
-          <div class="stat-item">
-            <span class="stat-label">Total Shifts:</span>
-            <span class="stat-value" id="total-shifts">0</span>
+        <div class="schedule-footer">
+          <div class="schedule-stats">
+            <div class="stat-item">
+              <span class="stat-label">Total Shifts:</span>
+              <span class="stat-value" id="total-shifts">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Assigned:</span>
+              <span class="stat-value" id="assigned-shifts">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Unassigned:</span>
+              <span class="stat-value" id="unassigned-shifts">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Conflicts:</span>
+              <span class="stat-value danger-txt" id="conflict-count">0</span>
+            </div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Assigned:</span>
-            <span class="stat-value" id="assigned-shifts">0</span>
+          <div class="schedule-summary" data-feature="schedule.summary">
+            <h3>Hours summary</h3>
+            <div class="summary-table-wrap">
+              <table class="summary-table">
+                <colgroup>
+                  <col class="col-student">
+                  <col class="col-weekly">
+                  <col class="col-month">
+                  <col class="col-open">
+                  <col class="col-close">
+                  <col class="col-issues">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Weekly breakdown</th>
+                    <th>Month hrs</th>
+                    <th>Open</th>
+                    <th>Close</th>
+                    <th>Issues</th>
+                  </tr>
+                </thead>
+                <tbody id="summary-table-body"></tbody>
+              </table>
+            </div>
+            <div class="summary-warnings" id="summary-warnings"></div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Unassigned:</span>
-            <span class="stat-value" id="unassigned-shifts">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Conflicts:</span>
-            <span class="stat-value danger-txt" id="conflict-count">0</span>
-          </div>
-        </div>
-        <div class="schedule-summary">
-          <h3>Hours summary</h3>
-          <div class="summary-table-wrap">
-            <table class="summary-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Weekly breakdown</th>
-                  <th>Month hrs</th>
-                  <th>Open</th>
-                  <th>Close</th>
-                  <th>Issues</th>
-                </tr>
-              </thead>
-              <tbody id="summary-table-body"></tbody>
-            </table>
-          </div>
-          <div class="summary-warnings" id="summary-warnings"></div>
         </div>
       </div>
 
@@ -184,6 +192,7 @@ class ScheduleView {
 
     await this.loadData();
     this.setupEventListeners();
+    if (this.app.access) this.app.access.applyVisibility(this.container);
     this.syncThreeMonthUi();
     this.renderCalendar();
     this.renderSummary();
@@ -719,58 +728,55 @@ class ScheduleView {
   }
 
   setupEventListeners() {
-    // Month navigation
-    document.getElementById('prev-month-btn').addEventListener('click', () => {
+    document.getElementById('prev-month-btn')?.addEventListener('click', () => {
       this.previousMonth();
     });
 
-    document.getElementById('next-month-btn').addEventListener('click', () => {
+    document.getElementById('next-month-btn')?.addEventListener('click', () => {
       this.nextMonth();
     });
 
-    // Action buttons
-    document.getElementById('add-shift-btn').addEventListener('click', () => {
+    document.getElementById('add-shift-btn')?.addEventListener('click', () => {
       this.showAddShiftModal();
     });
 
-    document.getElementById('generate-schedule-btn').addEventListener('click', () => {
+    document.getElementById('generate-schedule-btn')?.addEventListener('click', () => {
       this.generateSchedule();
     });
 
-    document.getElementById('rebalance-btn').addEventListener('click', () => {
+    document.getElementById('rebalance-btn')?.addEventListener('click', () => {
       this.rebalanceSchedule();
     });
 
-    document.getElementById('fill-open-close-btn').addEventListener('click', () => {
+    document.getElementById('fill-open-close-btn')?.addEventListener('click', () => {
       this.fillOpenClose();
     });
 
-    document.getElementById('export-csv-btn').addEventListener('click', () => {
+    document.getElementById('export-csv-btn')?.addEventListener('click', () => {
       this.exportCSV();
     });
 
-    document.getElementById('export-ics-btn').addEventListener('click', () => {
+    document.getElementById('export-ics-btn')?.addEventListener('click', () => {
       this.exportICS();
     });
 
-    document.getElementById('print-schedule-btn').addEventListener('click', () => {
+    document.getElementById('print-schedule-btn')?.addEventListener('click', () => {
       this.printSchedule();
     });
 
-    document.getElementById('save-state-btn').addEventListener('click', () => {
+    document.getElementById('save-state-btn')?.addEventListener('click', () => {
       window.app.saveStateDownload();
     });
 
-    document.getElementById('load-state-btn').addEventListener('click', () => {
+    document.getElementById('load-state-btn')?.addEventListener('click', () => {
       window.app.loadStateFromFile();
     });
 
-    document.getElementById('toggle-three-month-btn').addEventListener('click', () => {
+    document.getElementById('toggle-three-month-btn')?.addEventListener('click', () => {
       this.toggleThreeMonthView();
     });
 
-    // Admin mode toggle
-    document.getElementById('admin-mode-btn').addEventListener('click', () => {
+    document.getElementById('admin-mode-btn')?.addEventListener('click', () => {
       this.toggleAdminMode();
     });
 

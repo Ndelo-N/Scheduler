@@ -33,23 +33,23 @@ class SwapsView {
       <div class="swaps-header">
         <h1>Shift Swaps</h1>
         <div class="swaps-actions">
-          <button class="btn btn-primary" id="request-swap-btn">
+          <button class="btn btn-primary" id="request-swap-btn" data-feature="swaps.postMarketplace">
             Post to marketplace
           </button>
-          <button class="btn btn-secondary" id="refresh-swaps-btn">
+          <button class="btn btn-secondary" id="refresh-swaps-btn" data-feature="swaps.refresh">
             Refresh
           </button>
         </div>
       </div>
 
       <div class="view-tabs swaps-tabs">
-        <button type="button" class="view-tab active" data-swap-view="requests">Requests</button>
-        <button type="button" class="view-tab" data-swap-view="marketplace">Marketplace</button>
+        <button type="button" class="view-tab active" data-swap-view="requests" data-feature="swaps.panel.requests">Requests</button>
+        <button type="button" class="view-tab" data-swap-view="marketplace" data-feature="swaps.panel.marketplace">Marketplace</button>
       </div>
 
       <div class="swaps-content">
         <div class="swaps-sidebar">
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="swaps.filters">
             <h3>Filters</h3>
             <div class="filter-list">
               <button class="filter-btn active" data-filter="all">All Requests</button>
@@ -60,7 +60,7 @@ class SwapsView {
             </div>
           </div>
           
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="swaps.sidebar.debts">
             <h3>Swap debts</h3>
             <p class="config-help">Recorded when a shift is swapped on the calendar (right-click assignee).</p>
             <div class="debts-list" id="debts-list">
@@ -68,7 +68,7 @@ class SwapsView {
             </div>
           </div>
 
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="swaps.sidebar.stats">
             <h3>Quick Stats</h3>
             <div class="stats-list">
               <div class="stat-item">
@@ -87,7 +87,7 @@ class SwapsView {
           </div>
         </div>
 
-        <div class="swaps-main">
+        <div class="swaps-main" data-feature="swaps.list">
           <div class="swaps-list" id="swaps-list">
             <div class="loading">Loading...</div>
           </div>
@@ -141,6 +141,16 @@ class SwapsView {
 
     await this.loadData();
     this.setupEventListeners();
+    if (this.app.access) {
+      this.app.access.applyVisibility(this.container);
+      const first = this.app.access.firstAllowedSwapsTab();
+      if (first) {
+        this.viewMode = first;
+        document.querySelectorAll('.swaps-tabs .view-tab').forEach((t) => {
+          t.classList.toggle('active', t.dataset.swapView === first);
+        });
+      }
+    }
     this.renderDebtsPanel();
     this.renderSwapsList();
   }
@@ -424,25 +434,26 @@ class SwapsView {
     });
 
     // Action buttons
-    document.getElementById('request-swap-btn').addEventListener('click', () => {
+    document.getElementById('request-swap-btn')?.addEventListener('click', () => {
       this.showRequestSwapModal();
     });
 
-    document.getElementById('refresh-swaps-btn').addEventListener('click', () => {
+    document.getElementById('refresh-swaps-btn')?.addEventListener('click', () => {
       this.refreshData();
     });
 
-    document.querySelectorAll('.swaps-tabs .view-tab').forEach(tab => {
+    document.querySelectorAll('#swaps-view .swaps-tabs .view-tab').forEach(tab => {
       tab.addEventListener('click', () => {
+        const mode = tab.dataset.swapView;
+        if (this.app.access && !this.app.access.canSwapsTab(mode)) return;
         document.querySelectorAll('.swaps-tabs .view-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        this.viewMode = tab.dataset.swapView;
+        this.viewMode = mode;
         this.renderSwapsList();
       });
     });
 
     document.getElementById('close-swap-request-modal')?.addEventListener('click', () => this.closeSwapRequestModal());
-    document.getElementById('cancel-swap-request-btn')?.addEventListener('click', () => this.closeSwapRequestModal());
     document.getElementById('submit-swap-request-btn')?.addEventListener('click', () => this.submitSwapRequest());
     document.getElementById('swap-requester-select')?.addEventListener('change', () => this.loadShiftsForRequester());
     document.getElementById('swap-request-modal')?.addEventListener('click', (e) => {

@@ -494,13 +494,23 @@
 @media (max-width: 900px) {
   .schedule-content {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(240px, 1fr) auto;
     max-height: none;
+    overflow: visible;
   }
 
   .schedule-sidebar {
     max-height: 200px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  .schedule-calendar {
+    min-height: 240px;
+  }
+
+  .schedule-footer {
+    grid-column: 1;
   }
 
   .three-month-container {

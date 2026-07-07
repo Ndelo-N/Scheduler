@@ -31,13 +31,13 @@ class AnalyticsView {
       <div class="analytics-header">
         <h1>Analytics</h1>
         <div class="analytics-controls">
-          <select id="period-selector" class="form-select">
+          <select id="period-selector" class="form-select" data-feature="analytics.periodSelector">
             <option value="week">This Week</option>
             <option value="month">This Month</option>
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
-          <button class="btn btn-secondary" id="refresh-analytics-btn">
+          <button class="btn btn-secondary" id="refresh-analytics-btn" data-feature="analytics.refresh">
             <i class="icon-refresh"></i>
             Refresh
           </button>
@@ -46,7 +46,7 @@ class AnalyticsView {
 
       <div class="analytics-content">
         <div class="analytics-grid">
-          <div class="analytics-card overview">
+          <div class="analytics-card overview" data-feature="analytics.card.overview">
             <div class="card-header">
               <h2>Overview</h2>
             </div>
@@ -72,7 +72,7 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card hours-distribution">
+          <div class="analytics-card hours-distribution" data-feature="analytics.card.hoursDistribution">
             <div class="card-header">
               <h2>Hours Distribution</h2>
             </div>
@@ -81,7 +81,7 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card shift-coverage">
+          <div class="analytics-card shift-coverage" data-feature="analytics.card.shiftCoverage">
             <div class="card-header">
               <h2>Shift Coverage</h2>
             </div>
@@ -90,7 +90,7 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card student-performance">
+          <div class="analytics-card student-performance" data-feature="analytics.card.studentPerformance">
             <div class="card-header">
               <h2>Student Performance</h2>
             </div>
@@ -101,10 +101,10 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card contract-compliance">
+          <div class="analytics-card contract-compliance" data-feature="analytics.card.contractCompliance">
             <div class="card-header">
               <h2>Contract Compliance</h2>
-              <button type="button" class="btn btn-sm btn-secondary" id="export-compliance-btn">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-secondary" id="export-compliance-btn" data-feature="analytics.compliance.export">Export CSV</button>
             </div>
             <div class="card-content">
               <div class="compliance-summary-grid" id="compliance-summary-grid">
@@ -118,7 +118,7 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card swap-activity">
+          <div class="analytics-card swap-activity" data-feature="analytics.card.swapActivity">
             <div class="card-header">
               <h2>Swap Activity</h2>
             </div>
@@ -144,7 +144,7 @@ class AnalyticsView {
             </div>
           </div>
 
-          <div class="analytics-card trends">
+          <div class="analytics-card trends" data-feature="analytics.card.trends">
             <div class="card-header">
               <h2>Trends</h2>
             </div>
@@ -158,6 +158,7 @@ class AnalyticsView {
 
     await this.loadData();
     this.setupEventListeners();
+    if (this.app.access) this.app.access.applyVisibility(this.container);
     this.renderCharts();
   }
 

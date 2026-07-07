@@ -32,24 +32,24 @@ class StudentsView {
       <div class="students-header">
         <h1>Students & Contracts</h1>
         <div class="students-actions">
-          <button class="btn btn-primary" id="add-student-btn">Add Student</button>
-          <button class="btn btn-secondary" id="load-sample-btn">Load Sample</button>
-          <button class="btn btn-secondary" id="import-csv-btn">Import CSV</button>
-          <button class="btn btn-secondary" id="export-csv-btn">Export CSV</button>
+          <button class="btn btn-primary" id="add-student-btn" data-feature="students.addStudent">Add Student</button>
+          <button class="btn btn-secondary" id="load-sample-btn" data-feature="students.loadSample">Load Sample</button>
+          <button class="btn btn-secondary" id="import-csv-btn" data-feature="students.importCsv">Import CSV</button>
+          <button class="btn btn-secondary" id="export-csv-btn" data-feature="students.exportCsv">Export CSV</button>
         </div>
       </div>
 
       <div class="view-tabs">
-        <button type="button" class="view-tab active" data-tab="students">Students</button>
-        <button type="button" class="view-tab" data-tab="contracts">Contract compliance</button>
-        <button type="button" class="view-tab" data-tab="availability">Availability</button>
-        <button type="button" class="view-tab" data-tab="tests">Test dates</button>
-        <button type="button" class="view-tab" data-tab="ledger">Hours ledger</button>
+        <button type="button" class="view-tab active" data-tab="students" data-feature="students.panel.students">Students</button>
+        <button type="button" class="view-tab" data-tab="contracts" data-feature="students.panel.contracts">Contract compliance</button>
+        <button type="button" class="view-tab" data-tab="availability" data-feature="students.panel.availability">Availability</button>
+        <button type="button" class="view-tab" data-tab="tests" data-feature="students.panel.tests">Test dates</button>
+        <button type="button" class="view-tab" data-tab="ledger" data-feature="students.panel.ledger">Hours ledger</button>
       </div>
 
       <div class="students-content">
         <div class="students-sidebar">
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="students.sidebar.filters">
             <h3>Filters</h3>
             <div class="filter-list" id="student-filters">
               <button class="filter-btn active" data-filter="all">All Students</button>
@@ -65,7 +65,7 @@ class StudentsView {
             </div>
           </div>
 
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="students.sidebar.templates">
             <h3>Contract templates</h3>
             <p class="config-help">Apply preset monthly hours to all students.</p>
             <div class="template-btn-list">
@@ -76,7 +76,7 @@ class StudentsView {
             </div>
           </div>
 
-          <div class="sidebar-section">
+          <div class="sidebar-section" data-feature="students.sidebar.stats">
             <h3>Quick Stats</h3>
             <div class="stats-list">
               <div class="stat-item"><span class="stat-label">Total:</span><span class="stat-value" id="total-students">0</span></div>
@@ -87,17 +87,17 @@ class StudentsView {
         </div>
 
         <div class="students-main">
-          <div id="students-panel">
+          <div id="students-panel" data-feature="students.panel.students">
             <div class="students-list" id="students-list"><div class="loading">Loading...</div></div>
           </div>
-          <div id="contracts-panel" style="display:none">
+          <div id="contracts-panel" style="display:none" data-feature="students.panel.contracts">
             <div class="contract-dashboard">
               <div class="panel-toolbar">
                 <div>
                   <h2>Monthly compliance — ${this.getMonthLabel()}</h2>
                   <p class="config-help">Assigned hours from saved schedule vs each student's contracted monthly hours.</p>
                 </div>
-                <button type="button" class="btn btn-secondary" id="export-compliance-btn">Export compliance CSV</button>
+                <button type="button" class="btn btn-secondary" id="export-compliance-btn" data-feature="students.contracts.export">Export compliance CSV</button>
               </div>
               <div class="summary-table-wrap">
                 <table class="summary-table contract-table">
@@ -119,7 +119,7 @@ class StudentsView {
               <div class="contract-history" id="contract-history-list"></div>
             </div>
           </div>
-          <div id="availability-panel" style="display:none">
+          <div id="availability-panel" style="display:none" data-feature="students.panel.availability">
             <div class="availability-dashboard">
               <div class="onboarding-panel">
                 <h3>How to submit availability</h3>
@@ -136,8 +136,8 @@ class StudentsView {
                   <p class="config-help">Self-service weekly patterns with draft → submitted → locked workflow. Used by the scheduler engine.</p>
                 </div>
                 <div class="toolbar-actions">
-                  <button type="button" class="btn btn-secondary" id="grant-all-availability-btn">Grant all edit access</button>
-                  <button type="button" class="btn btn-secondary" id="export-availability-btn">Export availability CSV</button>
+                  <button type="button" class="btn btn-secondary" id="grant-all-availability-btn" data-feature="students.availability.grantAll">Grant all edit access</button>
+                  <button type="button" class="btn btn-secondary" id="export-availability-btn" data-feature="students.availability.export">Export availability CSV</button>
                 </div>
               </div>
               <div class="availability-stats" id="availability-stats"></div>
@@ -159,7 +159,7 @@ class StudentsView {
               </div>
             </div>
           </div>
-          <div id="tests-panel" style="display:none">
+          <div id="tests-panel" style="display:none" data-feature="students.panel.tests">
             <div class="availability-dashboard">
               <div class="onboarding-panel">
                 <h3>Assessment test dates</h3>
@@ -167,7 +167,7 @@ class StudentsView {
               </div>
               <div class="panel-toolbar">
                 <div id="active-assessment-label" class="config-help"></div>
-                <button type="button" class="btn btn-secondary" id="export-test-dates-btn">Export test dates CSV</button>
+                <button type="button" class="btn btn-secondary" id="export-test-dates-btn" data-feature="students.tests.export">Export test dates CSV</button>
               </div>
               <div class="summary-table-wrap">
                 <table class="summary-table availability-table">
@@ -179,7 +179,7 @@ class StudentsView {
               </div>
             </div>
           </div>
-          <div id="ledger-panel" style="display:none">
+          <div id="ledger-panel" style="display:none" data-feature="students.panel.ledger">
             <div class="contract-dashboard hours-ledger-dashboard">
               <div class="panel-toolbar">
                 <div>
@@ -192,11 +192,11 @@ class StudentsView {
                     <option value="assigned">Assigned (schedule)</option>
                     <option value="clocked">Clocked (payroll)</option>
                   </select>
-                  <button type="button" class="btn btn-secondary" id="refresh-ledger-btn">Refresh</button>
-                  <button type="button" class="btn btn-secondary" id="export-ledger-btn">Export CSV</button>
+                  <button type="button" class="btn btn-secondary" id="refresh-ledger-btn" data-feature="students.ledger.refresh">Refresh</button>
+                  <button type="button" class="btn btn-secondary" id="export-ledger-btn" data-feature="students.ledger.export">Export CSV</button>
                 </div>
               </div>
-              <section class="worked-hours-section" aria-labelledby="worked-hours-heading">
+              <section class="worked-hours-section" aria-labelledby="worked-hours-heading" data-feature="students.ledger.payroll">
                 <h3 id="worked-hours-heading">Worked hours (VeraLab payroll)</h3>
                 <p class="config-help">Upload a weekly DetailedPayroll <code>.xls</code> / <code>.xlsx</code> export. Rows are merged idempotently; reconciliation runs for the calendar month shown in Schedule.</p>
                 <div id="worked-hours-controls" class="worked-hours-controls"></div>
@@ -339,6 +339,11 @@ class StudentsView {
 
     await this.loadData();
     this.setupEventListeners();
+    if (this.app.access) {
+      this.app.access.applyVisibility(this.container);
+      const first = this.app.access.firstAllowedStudentTab();
+      if (first) this.switchTab(first);
+    }
     this.renderStudentsList();
     await this.renderContractsPanel();
   }
@@ -506,18 +511,18 @@ class StudentsView {
       });
     });
 
-    document.querySelectorAll('.view-tab').forEach(tab => {
+    document.querySelectorAll('#students-view .view-tab[data-tab]').forEach(tab => {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
     });
 
-    document.querySelectorAll('.contract-template-btn').forEach(btn => {
+    this.container?.querySelectorAll('.contract-template-btn').forEach(btn => {
       btn.addEventListener('click', () => this.applyTemplateToAll(btn.dataset.template));
     });
 
-    document.getElementById('add-student-btn').addEventListener('click', () => this.showAddStudentModal());
-    document.getElementById('load-sample-btn').addEventListener('click', () => this.loadSample());
-    document.getElementById('import-csv-btn').addEventListener('click', () => this.showImportCSVModal());
-    document.getElementById('export-csv-btn').addEventListener('click', () => this.exportCSV());
+    document.getElementById('add-student-btn')?.addEventListener('click', () => this.showAddStudentModal());
+    document.getElementById('load-sample-btn')?.addEventListener('click', () => this.loadSample());
+    document.getElementById('import-csv-btn')?.addEventListener('click', () => this.showImportCSVModal());
+    document.getElementById('export-csv-btn')?.addEventListener('click', () => this.exportCSV());
     document.getElementById('export-compliance-btn')?.addEventListener('click', () => this.exportComplianceCSV());
     document.getElementById('export-availability-btn')?.addEventListener('click', () => this.exportAvailabilityCSV());
     document.getElementById('export-test-dates-btn')?.addEventListener('click', () => this.exportTestDatesCSV());
@@ -579,6 +584,7 @@ class StudentsView {
   }
 
   switchTab(tab) {
+    if (this.app.access && !this.app.access.canStudentTab(tab)) return;
     this.currentTab = tab;
     document.querySelectorAll('.view-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === tab);

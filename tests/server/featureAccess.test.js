@@ -19,10 +19,19 @@ describe('featureAccess — sanitizeOverrides', () => {
     expect(out).toEqual({ 'team-lead': { 'view.analytics': true } });
   });
 
-  test('rejects non-boolean values', () => {
+  test('accepts granular schedule and students panel overrides', () => {
     const out = sanitizeOverrides({
-      student: { 'view.dashboard': 'yes' },
+      student: {
+        'students.panel.contracts': true,
+        'schedule.generate': false,
+      },
+      'team-lead': {
+        'dashboard.pendingSwaps': true,
+        'students.panel.ledger': true,
+      },
     });
-    expect(out).toEqual({});
+    expect(out.student['students.panel.contracts']).toBe(true);
+    expect(out.student['schedule.generate']).toBe(false);
+    expect(out['team-lead']['dashboard.pendingSwaps']).toBe(true);
   });
 });
